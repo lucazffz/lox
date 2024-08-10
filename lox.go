@@ -3,19 +3,36 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/LucazFFz/lox/internal/scan"
+	"log"
 	"os"
+
+	"github.com/LucazFFz/lox/internal/scan"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	switch len(os.Args) {
-	case 1:
-		execPrompt()
-	case 2:
-		execFile(os.Args[1])
-	default:
-		fmt.Println("Usage: jlox [script])")
-		os.Exit(64)
+	app := &cli.App{
+		Name:        "Lox interpreter",
+		Usage:       "",
+		Description: "A interpreter for the lox programming language.",
+		UsageText:   "lox [script] - Script might be omitted to enter interactive mode.",
+		Action: func(cCtx *cli.Context) error {
+			if cCtx.Args().Len() == 0 {
+				execPrompt()
+				return nil
+			} else if cCtx.Args().Len() == 1 {
+				err := execFile(cCtx.Args().First())
+				if err != nil {
+					return cli.Exit(err.Error(), 64)
+				}
+			}
+
+			return nil
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -28,12 +45,12 @@ func execPrompt() {
 	}
 }
 
-func execFile(path string) {
-	text, err := os.ReadFile(path)
-	if err == nil {
-		exec(string(text))
+func execFile(path string) error {
+	if text, err := os.ReadFile(path); err != nil {
+		return err
 	} else {
-		fmt.Println("Could not read file: ", err)
+		exec(string(text))
+		return nil
 	}
 }
 
