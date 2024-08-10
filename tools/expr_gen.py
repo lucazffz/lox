@@ -32,7 +32,7 @@ def define_ast(output_dir, base_name, *types):
 define_ast(out_dir, "expr", 
            "Binary : Expr left, token.Token op, Expr right", 
            "Grouping : Expr expr", 
-           "Literal : byte value", 
+           "Literal : string value", 
            "Unary : token.Token op, Expr right")
 
 subprocess.run(["go", "fmt", out_dir + "/expr.go"])

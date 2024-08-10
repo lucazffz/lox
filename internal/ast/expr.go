@@ -17,7 +17,7 @@ type Grouping struct {
 }
 
 type Literal struct {
-	value byte
+	value string
 }
 
 type Unary struct {
