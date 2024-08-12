@@ -2,10 +2,8 @@ package scan
 
 import (
 	"errors"
-	"fmt"
 	"github.com/LucazFFz/lox/internal/token"
 	"strconv"
-	"strings"
 	"unicode"
 )
 
@@ -16,11 +14,11 @@ type scanner struct {
 	line       int
 	keywords   map[string]token.TokenType
 	tokens     []token.Token
-	errors     []tokenError
 	context    ScanContext
+	report     func(int, string, string)
 }
 
-func newScanner(source string, context ScanContext) *scanner {
+func newScanner(source string, report func(int, string, string), context ScanContext) *scanner {
 	keywords := map[string]token.TokenType{
 		"and":    token.AND,
 		"class":  token.CLASS,
@@ -40,20 +38,7 @@ func newScanner(source string, context ScanContext) *scanner {
 		"while":  token.WHILE,
 	}
 
-	return &scanner{source, 0, 0, 1, keywords, []token.Token{}, []tokenError{}, context}
-}
-
-type tokenError struct {
-	line int
-	msg  string
-}
-
-func (e tokenError) Error() string {
-	return fmt.Sprintf("line %d: %v", e.line, e.msg)
-}
-
-type ScanError struct {
-	errors []tokenError
+	return &scanner{source, 0, 0, 1, keywords, []token.Token{}, context, report}
 }
 
 type ScanContext struct {
@@ -61,17 +46,8 @@ type ScanContext struct {
 	IncludeWhitespace bool
 }
 
-func (e ScanError) Error() string {
-	ret := []string{}
-	for _, err := range e.errors {
-		ret = append(ret, err.Error())
-	}
-
-	return strings.Join(ret, "\n")
-}
-
-func Scan(source string, context ScanContext) ([]token.Token, error) {
-	s := newScanner(source, context)
+func Scan(source string, report func(int, string, string), context ScanContext) []token.Token {
+	s := newScanner(source, report, context)
 	for !atEndOfFile(s) {
 		s.tokenEnd = s.tokenStart
 		scanToken(s)
@@ -79,11 +55,7 @@ func Scan(source string, context ScanContext) ([]token.Token, error) {
 
 	s.tokens = append(s.tokens, token.NewToken(token.EOF, "", 0, s.line))
 
-	if len(s.errors) != 0 {
-		return s.tokens, ScanError{s.errors}
-	}
-
-	return s.tokens, nil
+	return s.tokens
 }
 
 func scanToken(s *scanner) {
@@ -162,7 +134,7 @@ func scanToken(s *scanner) {
 	case '"':
 		lexme, err := handleString(s)
 		if err != nil {
-			s.errors = append(s.errors, tokenError{s.line, err.Error()})
+			s.report(s.line, lexme, err.Error())
 			break
 		}
 
@@ -185,7 +157,7 @@ func scanToken(s *scanner) {
 		}
 
 		err := "unexpected character '" + string(c) + "'"
-		s.errors = append(s.errors, tokenError{s.line, err})
+		s.report(s.line, string(c), err)
 	}
 }
 

@@ -7,20 +7,20 @@ type Expr interface {
 }
 
 type Binary struct {
-	left  Expr
-	op    token.Token
-	right Expr
+	Left  Expr
+	Op    token.Token
+	Right Expr
 }
 
 type Grouping struct {
-	expr Expr
+	Expr Expr
 }
 
 type Literal struct {
-	value string
+	Value string
 }
 
 type Unary struct {
-	op    token.Token
-	right Expr
+	Op    token.Token
+	Right Expr
 }

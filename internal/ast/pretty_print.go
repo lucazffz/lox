@@ -9,22 +9,22 @@ type PrettyPrint interface {
 }
 
 func (t Binary) Print() string {
-	return parenthesize(t.op.Lexme, t.left, t.right)
+	return parenthesize(t.Op.Lexme, t.Left, t.Right)
 }
 
 func (t Grouping) Print() string {
-	return parenthesize("group", t.expr)
+	return parenthesize("group", t.Expr)
 }
 
 func (t Literal) Print() string {
-	if t.value == "" {
+	if t.Value == "" {
 		return "nil"
 	}
-	return t.value
+	return t.Value
 }
 
 func (t Unary) Print() string {
-	return parenthesize(t.op.Lexme, t.right)
+	return parenthesize(t.Op.Lexme, t.Right)
 }
 
 func parenthesize(name string, exprs ...PrettyPrint) string {
