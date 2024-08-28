@@ -7,8 +7,8 @@ import (
 	"github.com/LucazFFz/lox/internal/token"
 )
 
-// precedence and associativity rules are basec on
-// the c programming language
+// Precedence and associativity rules are based on
+// the C programming language.
 
 type parser struct {
 	tokens  []token.Token
@@ -267,6 +267,7 @@ func (s *parser) previous() token.Token {
 func (s *parser) peek() token.Token {
 	return s.tokens[s.current]
 }
+
 func (s *parser) atEndOfFile() bool {
 	return s.peek().Type == token.EOF
 }

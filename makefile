@@ -21,5 +21,6 @@ run: generate
 .PHONY:run 
 
 generate:
-	go generate
+	python tools/expr_gen.py internal/ast
+	go generate internal/token/token.go
 .PHONY:generate
