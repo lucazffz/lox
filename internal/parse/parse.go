@@ -7,6 +7,9 @@ import (
 	"github.com/LucazFFz/lox/internal/token"
 )
 
+// precedence and associativity rules are basec on
+// the c programming language
+
 type parser struct {
 	tokens  []token.Token
 	current int
@@ -27,10 +30,47 @@ func Parse(tokens []token.Token, report func(int, string, string)) (ast.Expr, er
 	return expr, nil
 }
 
+// expression -> ternary;
+// precedence: none
+// associativity: none
 func expression(s *parser) (ast.Expr, error) {
-	return equality(s)
+	return ternary(s)
 }
 
+// ternary -> equlity "?" equality ":" ternary | equality;
+// precedence: 13
+// associativity: right-to-left
+func ternary(s *parser) (ast.Expr, error) {
+	expr, err := equality(s)
+	if err != nil {
+		return nil, err
+	}
+
+	if !s.match(token.QUESTION) {
+		return expr, nil
+	}
+
+	left, err := equality(s)
+	if err != nil {
+		return nil, err
+	}
+
+	if !s.match(token.COLON) {
+		return nil, errors.New("expected ':' as part of ternary operator")
+	}
+
+	right, err := ternary(s)
+	if err != nil {
+		return nil, err
+	}
+
+	expr = ast.Ternary{Condition: expr, Left: left, Right: right}
+	return expr, nil
+}
+
+// equality -> comparison (("!=" | "==") comparison)*;
+// precedence: 7
+// associativity: left-to-right
 func equality(s *parser) (ast.Expr, error) {
 	expr, err := comparison(s)
 	if err != nil {
@@ -49,6 +89,9 @@ func equality(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
+// comparison -> term ((">" | ">=" | "<" | "<=") term)*;
+// precedence: 6
+// associativity: left-to-right
 func comparison(s *parser) (ast.Expr, error) {
 	expr, err := term(s)
 	if err != nil {
@@ -67,6 +110,9 @@ func comparison(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
+// term -> factor (("-" | "+") factor)*;
+// precedence: 4
+// associativity: left-to-right
 func term(s *parser) (ast.Expr, error) {
 	expr, err := factor(s)
 	if err != nil {
@@ -85,6 +131,9 @@ func term(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
+// factor -> unary (("/" | "*") unary)*;
+// precedence: 3
+// associativity: left-to-right
 func factor(s *parser) (ast.Expr, error) {
 	expr, err := unary(s)
 	if err != nil {
@@ -103,6 +152,9 @@ func factor(s *parser) (ast.Expr, error) {
 	return expr, err
 }
 
+// unary -> ("!" | "-") unary | primary;
+// precedence: 2
+// associativity: right-to-left
 func unary(s *parser) (ast.Expr, error) {
 	if s.match(token.BANG, token.MINUS) {
 		operator := s.previous()
@@ -116,6 +168,9 @@ func unary(s *parser) (ast.Expr, error) {
 	return primary(s)
 }
 
+// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")";
+// precedence: 1
+// associativity: none
 func primary(s *parser) (ast.Expr, error) {
 	if s.match(token.FALSE) {
 		return ast.Literal{Value: "false"}, nil

@@ -88,6 +88,10 @@ func scanToken(s *scanner) {
 		appendToken(s, token.PLUS)
 	case '*':
 		appendToken(s, token.STAR)
+	case ':':
+		appendToken(s, token.COLON)
+	case '?':
+		appendToken(s, token.QUESTION)
 	case '!':
 		if match(s, '=') {
 			appendToken(s, token.BANG_EQUAL)

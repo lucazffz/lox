@@ -24,3 +24,9 @@ type Unary struct {
 	Op    token.Token
 	Right Expr
 }
+
+type Ternary struct {
+	Condition Expr
+	Left      Expr
+	Right     Expr
+}
