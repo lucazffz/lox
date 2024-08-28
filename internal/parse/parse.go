@@ -1,6 +1,8 @@
 package parse
 
 import (
+	"errors"
+
 	"github.com/LucazFFz/lox/internal/ast"
 	"github.com/LucazFFz/lox/internal/token"
 )
@@ -15,88 +17,159 @@ func newParser(tokens []token.Token, report func(int, string, string)) *parser {
 	return &parser{tokens, 0, report}
 }
 
-func expression(s *parser) ast.Expr {
+func Parse(tokens []token.Token, report func(int, string, string)) (ast.Expr, error) {
+	parser := newParser(tokens, report)
+	expr, err := expression(parser)
+	if err != nil {
+		return nil, err
+	}
+
+	return expr, nil
+}
+
+func expression(s *parser) (ast.Expr, error) {
 	return equality(s)
 }
 
-func equality(s *parser) ast.Expr {
-	expr := comparison(s)
+func equality(s *parser) (ast.Expr, error) {
+	expr, err := comparison(s)
+	if err != nil {
+		return nil, err
+	}
 
 	for s.match(token.EQUAL_EQUAL, token.BANG_EQUAL) {
 		operator := s.previous()
-		right := comparison(s)
-		expr = ast.Binary{expr, operator, right}
+		if right, err := comparison(s); err != nil {
+			return nil, err
+		} else {
+			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		}
 	}
 
-	return expr
+	return expr, nil
 }
 
-func comparison(s *parser) ast.Expr {
-	expr := term(s)
+func comparison(s *parser) (ast.Expr, error) {
+	expr, err := term(s)
+	if err != nil {
+		return nil, err
+	}
 
 	for s.match(token.GREATER, token.GREATER_EQUAL, token.LESS, token.LESS_EQUAL) {
 		operator := s.previous()
-		right := term(s)
-		expr = ast.Binary{expr, operator, right}
+		if right, err := term(s); err != nil {
+			return nil, err
+		} else {
+			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		}
 	}
 
-	return expr
+	return expr, nil
 }
 
-func term(s *parser) ast.Expr {
-	expr := factor(s)
+func term(s *parser) (ast.Expr, error) {
+	expr, err := factor(s)
+	if err != nil {
+		return nil, err
+	}
 
 	for s.match(token.MINUS, token.PLUS) {
 		operator := s.previous()
-		right := factor(s)
-		expr = ast.Binary{expr, operator, right}
+		if right, err := factor(s); err != nil {
+			return nil, err
+		} else {
+			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		}
 	}
 
-	return expr
+	return expr, nil
 }
 
-func factor(s *parser) ast.Expr {
-	expr := unary(s)
+func factor(s *parser) (ast.Expr, error) {
+	expr, err := unary(s)
+	if err != nil {
+		return nil, err
+	}
 
 	for s.match(token.SLASH, token.STAR) {
 		operator := s.previous()
-		right := unary(s)
-		expr = ast.Binary{expr, operator, right}
+		if right, err := unary(s); err != nil {
+			return nil, err
+		} else {
+			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		}
 	}
 
-	return expr
+	return expr, err
 }
 
-func unary(s *parser) ast.Expr {
+func unary(s *parser) (ast.Expr, error) {
 	if s.match(token.BANG, token.MINUS) {
 		operator := s.previous()
-		right := unary(s)
-		return ast.Unary{operator, right}
+		if right, err := unary(s); err != nil {
+			return nil, err
+		} else {
+			return ast.Unary{Op: operator, Right: right}, nil
+		}
 	}
 
 	return primary(s)
 }
 
-func primary(s *parser) ast.Expr {
+func primary(s *parser) (ast.Expr, error) {
 	if s.match(token.FALSE) {
-		return ast.Literal{"false"}
+		return ast.Literal{Value: "false"}, nil
 	}
 	if s.match(token.TRUE) {
-		return ast.Literal{"true"}
+		return ast.Literal{Value: "true"}, nil
 	}
 	if s.match(token.NIL) {
-		return ast.Literal{"nil"}
+		return ast.Literal{Value: "nil"}, nil
 	}
 	if s.match(token.NUMBER, token.STRING) {
-		return ast.Literal{s.previous().Lexme}
+		return ast.Literal{Value: s.previous().Lexme}, nil
 	}
 	if s.match(token.LEFT_PAREN) {
-		expr := expression(s)
-		s.consume(token.RIGHT_PAREN, "Expected ')' after expression")
-		return ast.Grouping{expr}
+		if expr, err := expression(s); err != nil {
+			return nil, err
+		} else {
+			s.consume(token.RIGHT_PAREN, "expected ')' after expression")
+			return ast.Grouping{Expr: expr}, nil
+		}
 	}
 
-	return nil
+	return nil, errors.New("could not parse tokens")
+}
+
+func (s *parser) synchronize() {
+	s.advance()
+
+	for !s.atEndOfFile() {
+		if s.previous().Type == token.SEMICOLON {
+			return
+		}
+
+		switch s.peek().Type {
+		case token.CLASS:
+			return
+		case token.FUN:
+			return
+		case token.VAR:
+			return
+		case token.FOR:
+			return
+		case token.IF:
+			return
+		case token.WHILE:
+			return
+		case token.PRINT:
+			return
+		case token.RETURN:
+			return
+		}
+
+		s.advance()
+	}
 }
 
 func (s *parser) consume(typ token.TokenType, msg string) {
@@ -105,7 +178,6 @@ func (s *parser) consume(typ token.TokenType, msg string) {
 	}
 
 	s.report(s.peek().Line, s.peek().Lexme, msg)
-
 }
 
 func (s *parser) match(types ...token.TokenType) bool {
@@ -140,7 +212,6 @@ func (s *parser) previous() token.Token {
 func (s *parser) peek() token.Token {
 	return s.tokens[s.current]
 }
-
 func (s *parser) atEndOfFile() bool {
 	return s.peek().Type == token.EOF
 }

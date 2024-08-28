@@ -3,10 +3,12 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/LucazFFz/lox/internal/scan"
-	"github.com/urfave/cli/v2"
 	"log"
 	"os"
+
+	"github.com/LucazFFz/lox/internal/parse"
+	"github.com/LucazFFz/lox/internal/scan"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -55,9 +57,15 @@ func execFile(path string) error {
 
 func exec(source string) {
 	tokens := scan.Scan(source, report, scan.ScanContext{})
-
+	expr, err := parse.Parse(tokens, report)
 	for _, token := range tokens {
 		fmt.Println(token)
+	}
+
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(expr.Print())
 	}
 }
 

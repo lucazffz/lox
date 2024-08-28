@@ -59,6 +59,7 @@ func Scan(source string, report func(int, string, string), context ScanContext) 
 }
 
 func scanToken(s *scanner) {
+
 	appendToken := func(s *scanner, typ token.TokenType) {
 		lexme := getLexme(s, 0, 0)
 		token := token.NewToken(typ, lexme, 0, s.line)
