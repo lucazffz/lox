@@ -96,8 +96,12 @@ func conditional(s *parser) (ast.Expr, error) {
 	}
 
 	if !s.match(token.COLON) {
-		err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: "expected ':' as part of conditional operator (conditional)"}
-		return nil, err
+		err := ParseError{
+			Line:    s.peek().Line,
+			Lexme:   s.peek().Lexme,
+			Message: "expected ':' as part of conditional operator (conditional)"}
+		s.report(err)
+		return nil, errors.New("")
 	}
 
 	s.advance()
@@ -117,7 +121,8 @@ func equality(s *parser) (ast.Expr, error) {
 	expr, err := comparison(s)
 	if err != nil {
 		if s.match(token.EQUAL_EQUAL, token.BANG_EQUAL) {
-			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (equality)")
+			expr = handleMissingExpression(s, s.peek().Lexme,
+				"missing left-hand-side operand (equality)")
 		} else {
 			return nil, err
 		}
@@ -127,7 +132,8 @@ func equality(s *parser) (ast.Expr, error) {
 		operator := s.peek()
 		s.advance()
 		if right, err := comparison(s); err != nil {
-			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (equality)")
+			expr = handleMissingExpression(s, s.peek().Lexme,
+				"missing left-hand-side operand (equality)")
 		} else {
 			expr = ast.Binary{Left: expr, Op: operator, Right: right}
 		}
@@ -143,7 +149,8 @@ func comparison(s *parser) (ast.Expr, error) {
 	expr, err := term(s)
 	if err != nil {
 		if s.match(token.GREATER, token.GREATER_EQUAL, token.LESS, token.LESS_EQUAL) {
-			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (comparison)")
+			expr = handleMissingExpression(s, s.peek().Lexme,
+				"missing left-hand-side operand (comparison)")
 		} else {
 			return nil, err
 		}
@@ -154,7 +161,8 @@ func comparison(s *parser) (ast.Expr, error) {
 		s.advance()
 		right, err := term(s)
 		if err != nil {
-			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand (comparison)")
+			right = handleMissingExpression(s, s.previous().Lexme,
+				"missing right-hand-side operand (comparison)")
 		}
 
 		expr = ast.Binary{Left: expr, Op: operator, Right: right}
@@ -176,7 +184,8 @@ func term(s *parser) (ast.Expr, error) {
 	expr, err := factor(s)
 	if err != nil {
 		if s.match(token.MINUS, token.PLUS) {
-			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (term)")
+			expr = handleMissingExpression(s, s.peek().Lexme,
+				"missing left-hand-side operand (term)")
 		} else {
 			return nil, err
 		}
@@ -187,7 +196,8 @@ func term(s *parser) (ast.Expr, error) {
 		s.advance()
 		right, err := factor(s)
 		if err != nil {
-			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand (term)")
+			right = handleMissingExpression(s, s.previous().Lexme,
+				"missing right-hand-side operand (term)")
 		}
 
 		expr = ast.Binary{Left: expr, Op: operator, Right: right}
@@ -203,7 +213,8 @@ func factor(s *parser) (ast.Expr, error) {
 	expr, err := unary(s)
 	if err != nil {
 		if s.match(token.SLASH, token.STAR) {
-			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (factor)")
+			expr = handleMissingExpression(s, s.peek().Lexme,
+				"missing left-hand-side operand (factor)")
 		} else {
 			return nil, err
 		}
@@ -214,7 +225,8 @@ func factor(s *parser) (ast.Expr, error) {
 		s.advance()
 		right, err := unary(s)
 		if err != nil {
-			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand (factor)")
+			right = handleMissingExpression(s, s.previous().Lexme,
+				"missing right-hand-side operand (factor)")
 		}
 
 		expr = ast.Binary{Left: expr, Op: operator, Right: right}
@@ -232,7 +244,8 @@ func unary(s *parser) (ast.Expr, error) {
 		s.advance()
 		right, err := unary(s)
 		if err != nil {
-			right = handleMissingExpression(s, s.previous().Lexme, "missing operand (unary)")
+			right = handleMissingExpression(s, s.previous().Lexme,
+				"missing operand (unary)")
 		}
 
 		return ast.Unary{Op: operator, Right: right}, nil
@@ -269,8 +282,12 @@ func primary(s *parser) (ast.Expr, error) {
 			return ast.Grouping{Expr: expr}, nil
 		}
 	default:
-		err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: "unexpected token"}
-		return nil, err
+		err := ParseError{
+			Line:    s.peek().Line,
+			Lexme:   s.peek().Lexme,
+			Message: "unexpected token"}
+		s.report(err)
+		return nil, errors.New("")
 	}
 }
 
@@ -311,7 +328,10 @@ func (s *parser) consume(typ token.TokenType, msg string) {
 		return
 	}
 
-	err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: msg}
+	err := ParseError{
+		Line:    s.peek().Line,
+		Lexme:   s.peek().Lexme,
+		Message: msg}
 	s.report(err)
 }
 

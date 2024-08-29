@@ -62,9 +62,7 @@ func exec(source string) {
 		fmt.Println(token)
 	}
 
-	if err != nil {
-		fmt.Println(err)
-	} else {
+	if err == nil {
 		fmt.Println(expr.Print())
 	}
 }
