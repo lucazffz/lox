@@ -34,7 +34,28 @@ func Parse(tokens []token.Token, report func(int, string, string)) (ast.Expr, er
 // precedence: none
 // associativity: none
 func expression(s *parser) (ast.Expr, error) {
-	return ternary(s)
+	return comma(s)
+}
+
+// comma -> ternary ("," ternary)*;
+// precedence: 15
+// associativity: left-to-right
+func comma(s *parser) (ast.Expr, error) {
+	expr, err := ternary(s)
+	if err != nil {
+		return nil, err
+	}
+
+	for s.match(token.COMMA) {
+		operator := s.previous()
+		if right, err := ternary(s); err != nil {
+			return nil, err
+		} else {
+			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		}
+	}
+
+	return expr, nil
 }
 
 // ternary -> equlity "?" equality ":" ternary | equality;
