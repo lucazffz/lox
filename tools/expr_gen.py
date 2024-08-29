@@ -12,14 +12,14 @@ args = parser.parse_args()
 out_dir = args.output
 
 
-def define_type(file, class_name, fields):
+def define_type(file, class_name, fields=""):
     file.write("type " + class_name + " struct {\n")
     for field in fields.split(", "):
-        name = field.split(" ")[1]
-        type = field.split(" ")[0]
-
-        file.write(name + " " + type + ";")
-        file.write("\n")
+        if len(field) > 1:
+            name = field.split(" ")[1]
+            type = field.split(" ")[0]
+            file.write(name + " " + type + ";")
+            file.write("\n")
     file.write("}\n\n")
 
 
@@ -31,9 +31,12 @@ def define_ast(output_dir, base_name, *types):
         file.write('import "github.com/LucazFFz/lox/internal/token"\n\n')
         file.write("type Expr interface {\nPrettyPrint\n}\n\n")
         for type in types:
-            class_name = type.split(":")[0].strip()
-            fields = type.split(":")[1].strip()
-            define_type(file, class_name, fields)
+            if type.find(":") != -1:
+                class_name = type.split(":")[0].strip()
+                fields = type.split(":")[1].strip()
+                define_type(file, class_name, fields)
+            else:
+                define_type(file, type)
 
 
 define_ast(
@@ -44,6 +47,7 @@ define_ast(
     "Literal : string Value",
     "Unary : token.Token Op, Expr Right",
     "Ternary : Expr Condition, Expr Left, Expr Right",
+    "Nothing",
 )
 
 subprocess.run(["go", "fmt", out_dir + "/expr.go"])
