@@ -3,6 +3,7 @@ package parse
 import (
 	"errors"
 	"fmt"
+
 	"github.com/LucazFFz/lox/internal/ast"
 	"github.com/LucazFFz/lox/internal/token"
 )
@@ -38,6 +39,10 @@ func Parse(tokens []token.Token, report func(error)) (ast.Expr, error) {
 	expr, err := expression(parser)
 	if err != nil {
 		return nil, err
+	}
+
+	if parser.parseErrOccured {
+		return nil, errors.New("parse error occured")
 	}
 
 	return expr, nil
@@ -84,16 +89,18 @@ func conditional(s *parser) (ast.Expr, error) {
 		return expr, nil
 	}
 
+	s.advance()
 	left, err := equality(s)
 	if err != nil {
 		return nil, err
 	}
 
 	if !s.match(token.COLON) {
-		err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: "expected ':' as part of conditional operator"}
-		s.report(err)
+		err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: "expected ':' as part of conditional operator (conditional)"}
+		return nil, err
 	}
 
+	s.advance()
 	right, err := conditional(s)
 	if err != nil {
 		return nil, err
@@ -103,19 +110,24 @@ func conditional(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// equality -> comparison (("!=" | "==") comparison)*;
+// equality -> (nothing | comparison) (("!=" | "==") (nothing | comparison))*;
 // precedence: 7
 // associativity: left-to-right
 func equality(s *parser) (ast.Expr, error) {
 	expr, err := comparison(s)
 	if err != nil {
-		return nil, err
+		if s.match(token.EQUAL_EQUAL, token.BANG_EQUAL) {
+			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (equality)")
+		} else {
+			return nil, err
+		}
 	}
 
 	for s.match(token.EQUAL_EQUAL, token.BANG_EQUAL) {
-		operator := s.previous()
+		operator := s.peek()
+		s.advance()
 		if right, err := comparison(s); err != nil {
-			return nil, err
+			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (equality)")
 		} else {
 			expr = ast.Binary{Left: expr, Op: operator, Right: right}
 		}
@@ -124,22 +136,28 @@ func equality(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// comparison -> term ((">" | ">=" | "<" | "<=") term)*;
+// comparison -> (nothing | term) ((">" | ">=" | "<" | "<=") (nothing | term))*;
 // precedence: 6
 // associativity: left-to-right
 func comparison(s *parser) (ast.Expr, error) {
 	expr, err := term(s)
 	if err != nil {
-		return nil, err
+		if s.match(token.GREATER, token.GREATER_EQUAL, token.LESS, token.LESS_EQUAL) {
+			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (comparison)")
+		} else {
+			return nil, err
+		}
 	}
 
 	for s.match(token.GREATER, token.GREATER_EQUAL, token.LESS, token.LESS_EQUAL) {
-		operator := s.previous()
-		if right, err := term(s); err != nil {
-			return nil, err
-		} else {
-			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		operator := s.peek()
+		s.advance()
+		right, err := term(s)
+		if err != nil {
+			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand (comparison)")
 		}
+
+		expr = ast.Binary{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
@@ -157,14 +175,19 @@ func handleMissingExpression(s *parser, lexme string, msg string) ast.Expr {
 func term(s *parser) (ast.Expr, error) {
 	expr, err := factor(s)
 	if err != nil {
-		expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand")
+		if s.match(token.MINUS, token.PLUS) {
+			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (term)")
+		} else {
+			return nil, err
+		}
 	}
 
 	for s.match(token.MINUS, token.PLUS) {
-		operator := s.previous()
+		operator := s.peek()
+		s.advance()
 		right, err := factor(s)
 		if err != nil {
-			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand")
+			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand (term)")
 		}
 
 		expr = ast.Binary{Left: expr, Op: operator, Right: right}
@@ -173,69 +196,82 @@ func term(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// factor -> unary (("/" | "*") unary)*;
+// factor -> (unary | nothing) (("/" | "*") (unary | nothing))*;
 // precedence: 3
 // associativity: left-to-right
 func factor(s *parser) (ast.Expr, error) {
 	expr, err := unary(s)
 	if err != nil {
-		return nil, err
+		if s.match(token.SLASH, token.STAR) {
+			expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand (factor)")
+		} else {
+			return nil, err
+		}
 	}
 
 	for s.match(token.SLASH, token.STAR) {
-		operator := s.previous()
-		if right, err := unary(s); err != nil {
-			return nil, err
-		} else {
-			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		operator := s.peek()
+		s.advance()
+		right, err := unary(s)
+		if err != nil {
+			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand (factor)")
 		}
+
+		expr = ast.Binary{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
 }
 
-// unary -> ("!" | "-") unary | primary;
+// unary -> ("!" | "-") (unary | nothing) | primary;
 // precedence: 2
 // associativity: right-to-left
 func unary(s *parser) (ast.Expr, error) {
 	if s.match(token.BANG, token.MINUS) {
-		operator := s.previous()
-		if right, err := unary(s); err != nil {
-			return nil, err
-		} else {
-			return ast.Unary{Op: operator, Right: right}, nil
+		operator := s.peek()
+		s.advance()
+		right, err := unary(s)
+		if err != nil {
+			right = handleMissingExpression(s, s.previous().Lexme, "missing operand (unary)")
 		}
+
+		return ast.Unary{Op: operator, Right: right}, nil
 	}
 
 	return primary(s)
 }
 
-// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")";
+// primary -> NUMBER | STRING | nothing | "true" | "false" | "nil" | "(" expression ")";
 // precedence: 1
 // associativity: none
 func primary(s *parser) (ast.Expr, error) {
-	if s.match(token.FALSE) {
+	switch s.peek().Type {
+	case token.FALSE:
+		s.advance()
 		return ast.Literal{Value: "false"}, nil
-	}
-	if s.match(token.TRUE) {
+	case token.TRUE:
+		s.advance()
 		return ast.Literal{Value: "true"}, nil
-	}
-	if s.match(token.NIL) {
+	case token.NIL:
+		s.advance()
 		return ast.Literal{Value: "nil"}, nil
-	}
-	if s.match(token.NUMBER, token.STRING) {
+	case token.NUMBER:
+		fallthrough
+	case token.STRING:
+		s.advance()
 		return ast.Literal{Value: s.previous().Lexme}, nil
-	}
-	if s.match(token.LEFT_PAREN) {
+	case token.LEFT_PAREN:
+		s.advance()
 		if expr, err := expression(s); err != nil {
 			return nil, err
 		} else {
-			s.consume(token.RIGHT_PAREN, "expected ')' after expression")
+			s.consume(token.RIGHT_PAREN, "expected ')' after expression (primary)")
 			return ast.Grouping{Expr: expr}, nil
 		}
+	default:
+		err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: "unexpected token"}
+		return nil, err
 	}
-
-	return nil, errors.New("missing token")
 }
 
 func (s *parser) synchronize() {
@@ -272,6 +308,7 @@ func (s *parser) synchronize() {
 func (s *parser) consume(typ token.TokenType, msg string) {
 	if s.check(typ) {
 		s.advance()
+		return
 	}
 
 	err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: msg}
@@ -281,7 +318,6 @@ func (s *parser) consume(typ token.TokenType, msg string) {
 func (s *parser) match(types ...token.TokenType) bool {
 	for _, typ := range types {
 		if s.check(typ) {
-			s.advance()
 			return true
 		}
 	}
