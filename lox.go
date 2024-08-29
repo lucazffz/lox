@@ -69,10 +69,9 @@ func exec(source string) {
 	}
 }
 
-func report(line int, location string, msg string) {
-	if location != "" {
-		fmt.Printf("[%d] error at \"%s\" - %s \n", line, location, msg)
-	} else {
-		fmt.Printf("[%d] error - %s \n", line, msg)
+func report(err error) {
+	switch e := err.(type) {
+	default:
+		fmt.Print(e)
 	}
 }

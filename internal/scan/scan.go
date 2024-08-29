@@ -2,6 +2,7 @@ package scan
 
 import (
 	"errors"
+	"fmt"
 	"github.com/LucazFFz/lox/internal/token"
 	"strconv"
 	"unicode"
@@ -15,10 +16,10 @@ type scanner struct {
 	keywords   map[string]token.TokenType
 	tokens     []token.Token
 	context    ScanContext
-	report     func(int, string, string)
+	report     func(error)
 }
 
-func newScanner(source string, report func(int, string, string), context ScanContext) *scanner {
+func newScanner(source string, report func(error), context ScanContext) *scanner {
 	keywords := map[string]token.TokenType{
 		"and":    token.AND,
 		"class":  token.CLASS,
@@ -46,7 +47,17 @@ type ScanContext struct {
 	IncludeWhitespace bool
 }
 
-func Scan(source string, report func(int, string, string), context ScanContext) []token.Token {
+type ScanError struct {
+	Message string
+	Line    int
+	Lexme   string
+}
+
+func (e ScanError) Error() string {
+	return fmt.Sprintf("[%d] error at \"%s\" - %s \n", e.Line, e.Lexme, e.Message)
+}
+
+func Scan(source string, report func(error), context ScanContext) []token.Token {
 	s := newScanner(source, report, context)
 	for !atEndOfFile(s) {
 		s.tokenEnd = s.tokenStart
@@ -139,7 +150,8 @@ func scanToken(s *scanner) {
 	case '"':
 		lexme, err := handleString(s)
 		if err != nil {
-			s.report(s.line, lexme, err.Error())
+			err := ScanError{Line: s.line, Lexme: lexme, Message: err.Error()}
+			s.report(err)
 			break
 		}
 
@@ -161,8 +173,8 @@ func scanToken(s *scanner) {
 			break
 		}
 
-		err := "unexpected character '" + string(c) + "'"
-		s.report(s.line, string(c), err)
+		err := ScanError{Line: s.line, Lexme: getLexme(s, 0, 0), Message: "unexpected character '" + string(c) + "'"}
+		s.report(err)
 	}
 }
 

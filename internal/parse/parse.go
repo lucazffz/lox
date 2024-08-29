@@ -2,25 +2,38 @@ package parse
 
 import (
 	"errors"
-
+	"fmt"
 	"github.com/LucazFFz/lox/internal/ast"
 	"github.com/LucazFFz/lox/internal/token"
 )
+
+// This is a recursive descent parser.
 
 // Precedence and associativity rules are based on
 // the C programming language.
 
 type parser struct {
-	tokens  []token.Token
-	current int
-	report  func(int, string, string)
+	tokens          []token.Token
+	current         int
+	parseErrOccured bool
+	report          func(error)
 }
 
-func newParser(tokens []token.Token, report func(int, string, string)) *parser {
-	return &parser{tokens, 0, report}
+func newParser(tokens []token.Token, report func(error)) *parser {
+	return &parser{tokens, 0, false, report}
 }
 
-func Parse(tokens []token.Token, report func(int, string, string)) (ast.Expr, error) {
+type ParseError struct {
+	Message string
+	Line    int
+	Lexme   string
+}
+
+func (e ParseError) Error() string {
+	return fmt.Sprintf("[%d] error at \"%s\" - %s \n", e.Line, e.Lexme, e.Message)
+}
+
+func Parse(tokens []token.Token, report func(error)) (ast.Expr, error) {
 	parser := newParser(tokens, report)
 	expr, err := expression(parser)
 	if err != nil {
@@ -30,25 +43,25 @@ func Parse(tokens []token.Token, report func(int, string, string)) (ast.Expr, er
 	return expr, nil
 }
 
-// expression -> ternary;
+// expression -> commma;
 // precedence: none
 // associativity: none
 func expression(s *parser) (ast.Expr, error) {
 	return comma(s)
 }
 
-// comma -> ternary ("," ternary)*;
+// comma -> conditional ("," conditional)*;
 // precedence: 15
 // associativity: left-to-right
 func comma(s *parser) (ast.Expr, error) {
-	expr, err := ternary(s)
+	expr, err := conditional(s)
 	if err != nil {
 		return nil, err
 	}
 
 	for s.match(token.COMMA) {
 		operator := s.previous()
-		if right, err := ternary(s); err != nil {
+		if right, err := conditional(s); err != nil {
 			return nil, err
 		} else {
 			expr = ast.Binary{Left: expr, Op: operator, Right: right}
@@ -58,10 +71,10 @@ func comma(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// ternary -> equlity "?" equality ":" ternary | equality;
+// conditional -> equlity "?" equality ":" conditional | equality;
 // precedence: 13
 // associativity: right-to-left
-func ternary(s *parser) (ast.Expr, error) {
+func conditional(s *parser) (ast.Expr, error) {
 	expr, err := equality(s)
 	if err != nil {
 		return nil, err
@@ -77,10 +90,11 @@ func ternary(s *parser) (ast.Expr, error) {
 	}
 
 	if !s.match(token.COLON) {
-		return nil, errors.New("expected ':' as part of ternary operator")
+		err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: "expected ':' as part of conditional operator"}
+		s.report(err)
 	}
 
-	right, err := ternary(s)
+	right, err := conditional(s)
 	if err != nil {
 		return nil, err
 	}
@@ -131,22 +145,29 @@ func comparison(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// term -> factor (("-" | "+") factor)*;
+func handleMissingExpression(s *parser, lexme string, msg string) ast.Expr {
+	s.parseErrOccured = true
+	s.report(ParseError{Line: s.peek().Line, Lexme: lexme, Message: msg})
+	return ast.Nothing{}
+}
+
+// term -> (nothing | factor) (("-" | "+") (nothing | factor))*;
 // precedence: 4
 // associativity: left-to-right
 func term(s *parser) (ast.Expr, error) {
 	expr, err := factor(s)
 	if err != nil {
-		return nil, err
+		expr = handleMissingExpression(s, s.peek().Lexme, "missing left-hand-side operand")
 	}
 
 	for s.match(token.MINUS, token.PLUS) {
 		operator := s.previous()
-		if right, err := factor(s); err != nil {
-			return nil, err
-		} else {
-			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		right, err := factor(s)
+		if err != nil {
+			right = handleMissingExpression(s, s.previous().Lexme, "missing right-hand-side operand")
 		}
+
+		expr = ast.Binary{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
@@ -170,7 +191,7 @@ func factor(s *parser) (ast.Expr, error) {
 		}
 	}
 
-	return expr, err
+	return expr, nil
 }
 
 // unary -> ("!" | "-") unary | primary;
@@ -214,7 +235,7 @@ func primary(s *parser) (ast.Expr, error) {
 		}
 	}
 
-	return nil, errors.New("could not parse tokens")
+	return nil, errors.New("missing token")
 }
 
 func (s *parser) synchronize() {
@@ -253,7 +274,8 @@ func (s *parser) consume(typ token.TokenType, msg string) {
 		s.advance()
 	}
 
-	s.report(s.peek().Line, s.peek().Lexme, msg)
+	err := ParseError{Line: s.peek().Line, Lexme: s.peek().Lexme, Message: msg}
+	s.report(err)
 }
 
 func (s *parser) match(types ...token.TokenType) bool {

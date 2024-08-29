@@ -32,3 +32,6 @@ type Ternary struct {
 	Left      Expr
 	Right     Expr
 }
+
+type Nothing struct {
+}

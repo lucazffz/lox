@@ -31,6 +31,10 @@ func (t Ternary) Print() string {
 	return parenthesize("ternary", t.Condition, t.Left, t.Right)
 }
 
+func (t Nothing) Print() string {
+	return parenthesize("Nothing")
+}
+
 func parenthesize(name string, exprs ...PrettyPrint) string {
 	var builder = strings.Builder{}
 	builder.WriteString("(")
