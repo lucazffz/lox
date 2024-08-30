@@ -13,7 +13,7 @@ vet: fmt
 .PHONY:vet
 
 build: vet generate
-	go build -o ../bin
+	go build -o build
 .PHONY:build
 
 run: generate

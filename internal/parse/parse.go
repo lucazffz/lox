@@ -386,10 +386,10 @@ func (s *parser) check(typ token.TokenType) bool {
 }
 
 func (s *parser) advance() token.Token {
-    if !s.atEndOfFile() {
-        s.current++
-    }
-    return s.previous()
+	if !s.atEndOfFile() {
+		s.current++
+	}
+	return s.previous()
 }
 
 func (s *parser) previous() token.Token {
