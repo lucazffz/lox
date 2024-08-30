@@ -1,10 +1,13 @@
+# NOTE: script heavliy dependent on project structure
+
 import subprocess
 import argparse
 
 parser = argparse.ArgumentParser(
     prog="expr_gen",
     description="Generates a file named expr.go to the"
-    + " specified directory containing ast structs.",
+    + " specified directory containing structs"
+    + " used by the parser to produce an AST.",
 )
 parser.add_argument("output")
 
