@@ -1,17 +1,16 @@
+// This is a recursive descent parser.
+
+// Precedence and associativity rules are based on
+// the C programming language.
+
 package parse
 
 import (
 	"errors"
 	"fmt"
-
 	"github.com/LucazFFz/lox/internal/ast"
 	"github.com/LucazFFz/lox/internal/token"
 )
-
-// This is a recursive descent parser.
-
-// Precedence and associativity rules are based on
-// the C programming language.
 
 type parser struct {
 	tokens          []token.Token
@@ -34,6 +33,24 @@ func (e ParseError) Error() string {
 	return fmt.Sprintf("[%d] error at \"%s\" - %s \n", e.Line, e.Lexme, e.Message)
 }
 
+// Parse generates an abstract syntax tree (ast.Expr) based on the given tokens.
+// The parser will use error productions and synchronize itself between
+// statements where possible to provide best effort error reporting.
+//
+// Parameters:
+//
+//   - tokens: A list of tokens to be parsed.
+//   - report: A callback function which is invoked when an error occur.
+//
+// NOTE: Report is invoked on both resolved and unresolved errors.
+//
+// Returns:
+//
+//   - ast.Expr: An abstract syntax tree.
+//   - error: An error used to signalize that a parse error occured.
+//
+// NOTE: The returned error do not contain any information regarding
+// the given parse errors, that information is passed to report.
 func Parse(tokens []token.Token, report func(error)) (ast.Expr, error) {
 	parser := newParser(tokens, report)
 	expr, err := expression(parser)
