@@ -1,8 +1,15 @@
-// This is a recursive descent parser.
-
+// A recursive descent parser implementing the Lox programming language.
+//
 // Precedence and associativity rules are based on
-// the C programming language.
-
+// the C programming language. For full spec, see [C Operator Precedence].
+//
+// For full language spec, see [The Lox Language]. Note that some tweaks and additions
+// have been made in this specific implementation of the language such as
+// the implementation of a c-like comma operator and conditional operator
+// among others.
+//
+// [C Operator Precedence]: https://en.cppreference.com/w/c/language/operator_precedence
+// [The Lox Language]: https://craftinginterpreters.com/the-lox-language.html
 package parse
 
 import (
@@ -65,16 +72,18 @@ func Parse(tokens []token.Token, report func(error)) (ast.Expr, error) {
 	return expr, nil
 }
 
-// expression -> commma;
-// precedence: none
-// associativity: none
+// Production rules:
+//   - expression -> commma;
+//   - precedence: none
+//   - ssociativity: none
 func expression(s *parser) (ast.Expr, error) {
 	return comma(s)
 }
 
-// comma -> conditional ("," conditional)*;
-// precedence: 15
-// associativity: left-to-right
+// Production rules:
+//   - comma -> conditional ("," conditional)*;
+//   - precedence: 15
+//   - associativity: left-to-right
 func comma(s *parser) (ast.Expr, error) {
 	expr, err := conditional(s)
 	if err != nil {
@@ -93,9 +102,10 @@ func comma(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// conditional -> equlity "?" equality ":" conditional | equality;
-// precedence: 13
-// associativity: right-to-left
+// Production rules:
+//   - conditional -> equlity "?" equality ":" conditional | equality;
+//   - precedence: 13
+//   - associativity: right-to-left
 func conditional(s *parser) (ast.Expr, error) {
 	expr, err := equality(s)
 	if err != nil {
@@ -131,9 +141,10 @@ func conditional(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// equality -> (nothing | comparison) (("!=" | "==") (nothing | comparison))*;
-// precedence: 7
-// associativity: left-to-right
+// Production rules:
+//   - quality -> (nothing | comparison) (("!=" | "==") (nothing | comparison))*;
+//   - precedence: 7
+//   - associativity: left-to-right
 func equality(s *parser) (ast.Expr, error) {
 	expr, err := comparison(s)
 	if err != nil {
@@ -159,9 +170,10 @@ func equality(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// comparison -> (nothing | term) ((">" | ">=" | "<" | "<=") (nothing | term))*;
-// precedence: 6
-// associativity: left-to-right
+// Production rules:
+//   - comparison -> (nothing | term) ((">" | ">=" | "<" | "<=") (nothing | term))*;
+//   - precedence: 6
+//   - associativity: left-to-right
 func comparison(s *parser) (ast.Expr, error) {
 	expr, err := term(s)
 	if err != nil {
@@ -194,9 +206,10 @@ func handleMissingExpression(s *parser, lexme string, msg string) ast.Expr {
 	return ast.Nothing{}
 }
 
-// term -> (nothing | factor) (("-" | "+") (nothing | factor))*;
-// precedence: 4
-// associativity: left-to-right
+// Production rules:
+//   - term -> (nothing | factor) (("-" | "+") (nothing | factor))*;
+//   - precedence: 4
+//   - associativity: left-to-right
 func term(s *parser) (ast.Expr, error) {
 	expr, err := factor(s)
 	if err != nil {
@@ -223,9 +236,10 @@ func term(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// factor -> (unary | nothing) (("/" | "*") (unary | nothing))*;
-// precedence: 3
-// associativity: left-to-right
+// Production rules:
+//   - factor -> (unary | nothing) (("/" | "*") (unary | nothing))*;
+//   - precedence: 3
+//   - associativity: left-to-right
 func factor(s *parser) (ast.Expr, error) {
 	expr, err := unary(s)
 	if err != nil {
@@ -252,9 +266,10 @@ func factor(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// unary -> ("!" | "-") (unary | nothing) | primary;
-// precedence: 2
-// associativity: right-to-left
+// Production rules:
+//   - unary -> ("!" | "-") (unary | nothing) | primary;
+//   - precedence: 2
+//   - associativity: right-to-left
 func unary(s *parser) (ast.Expr, error) {
 	if s.match(token.BANG, token.MINUS) {
 		operator := s.peek()
@@ -271,9 +286,10 @@ func unary(s *parser) (ast.Expr, error) {
 	return primary(s)
 }
 
-// primary -> NUMBER | STRING | nothing | "true" | "false" | "nil" | "(" expression ")";
-// precedence: 1
-// associativity: none
+// Production rules:
+//   - primary -> NUMBER | STRING | nothing | "true" | "false" | "nil" | "(" expression ")";
+//   - precedence: 1
+//   - associativity: none
 func primary(s *parser) (ast.Expr, error) {
 	switch s.peek().Type {
 	case token.FALSE:
