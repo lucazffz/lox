@@ -5,16 +5,16 @@ import (
 )
 
 //go:generate stringer -type=TokenType
-type TokenType int
+type TokenType uint8
 
 type Token struct {
 	Type    TokenType
 	Lexme   string
-	Literal byte
+	Literal []byte
 	Line    int
 }
 
-func NewToken(token TokenType, lexme string, literal byte, line int) Token {
+func NewToken(token TokenType, lexme string, literal []byte, line int) Token {
 	return Token{token, lexme, literal, line}
 }
 

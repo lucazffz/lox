@@ -65,6 +65,13 @@ func exec(source string) {
 	if err == nil {
 		fmt.Println(expr.Print())
 	}
+
+	value, err := expr.Evaluate()
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(value.Print())
+	}
 }
 
 func report(err error) {

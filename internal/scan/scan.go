@@ -1,6 +1,8 @@
 package scan
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/LucazFFz/lox/internal/token"
@@ -64,7 +66,7 @@ func Scan(source string, report func(error), context ScanContext) []token.Token 
 		scanToken(s)
 	}
 
-	s.tokens = append(s.tokens, token.NewToken(token.EOF, "", 0, s.line))
+	s.tokens = append(s.tokens, token.NewToken(token.EOF, "", nil, s.line))
 
 	return s.tokens
 }
@@ -73,7 +75,7 @@ func scanToken(s *scanner) {
 
 	appendToken := func(s *scanner, typ token.TokenType) {
 		lexme := getLexme(s, 0, 0)
-		token := token.NewToken(typ, lexme, 0, s.line)
+		token := token.NewToken(typ, lexme, nil, s.line)
 		s.tokens = append(s.tokens, token)
 	}
 
@@ -131,20 +133,20 @@ func scanToken(s *scanner) {
 		if peek(s) == '/' || peek(s) == '*' {
 			lexme := handleComment(s)
 			if s.context.IncludeComments {
-				token := token.NewToken(token.COMMENT, lexme, 0, s.line)
+				token := token.NewToken(token.COMMENT, lexme, nil, s.line)
 				s.tokens = append(s.tokens, token)
 			}
 			break
 		}
 
-		token := token.NewToken(token.SLASH, getLexme(s, 0, 0), 0, s.line)
+		token := token.NewToken(token.SLASH, getLexme(s, 0, 0), nil, s.line)
 		s.tokens = append(s.tokens, token)
 	case '\n':
 		s.line++
 		fallthrough
 	case ' ', '\r', '\t':
 		if s.context.IncludeWhitespace {
-			token := token.NewToken(token.WHITESPACE, string(c), 0, s.line)
+			token := token.NewToken(token.WHITESPACE, string(c), nil, s.line)
 			s.tokens = append(s.tokens, token)
 		}
 	case '"':
@@ -155,20 +157,25 @@ func scanToken(s *scanner) {
 			break
 		}
 
-		token := token.NewToken(token.STRING, lexme, 0, s.line)
+		token := token.NewToken(token.STRING, lexme, []byte(lexme), s.line)
 		s.tokens = append(s.tokens, token)
 	default:
 		if unicode.IsDigit(c) {
 			number := handleNumber(s)
-			lexme := strconv.FormatFloat(number, 'f', -1, 64)
-			token := token.NewToken(token.NUMBER, lexme, 0, s.line)
+			buf := bytes.NewBuffer(make([]byte, 0, 8))
+			if err := binary.Write(buf, binary.LittleEndian, number); err != nil {
+				panic(err)
+			}
+
+			lexme := getLexme(s, 0, 0)
+			token := token.NewToken(token.NUMBER, lexme, buf.Bytes(), s.line)
 			s.tokens = append(s.tokens, token)
 			break
 		}
 
 		if unicode.IsLetter(c) || c == '_' {
 			typ, lexme := handleIdentifier(s)
-			token := token.NewToken(typ, lexme, 0, s.line)
+			token := token.NewToken(typ, lexme, []byte(lexme), s.line)
 			s.tokens = append(s.tokens, token)
 			break
 		}

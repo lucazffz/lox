@@ -13,6 +13,8 @@
 package parse
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/LucazFFz/lox/internal/ast"
@@ -294,18 +296,29 @@ func primary(s *parser) (ast.Expr, error) {
 	switch s.peek().Type {
 	case token.FALSE:
 		s.advance()
-		return ast.Literal{Value: "false"}, nil
+		return ast.Literal{Value: ast.Boolean(false)}, nil
 	case token.TRUE:
 		s.advance()
-		return ast.Literal{Value: "true"}, nil
+		return ast.Literal{Value: ast.Boolean(true)}, nil
 	case token.NIL:
 		s.advance()
-		return ast.Literal{Value: "nil"}, nil
+		return ast.Literal{Value: ast.Nil{}}, nil
 	case token.NUMBER:
-		fallthrough
+		s.advance()
+
+		var num float64
+		b := s.previous().Literal
+		buf := bytes.NewReader(b)
+		err := binary.Read(buf, binary.LittleEndian, &num)
+		if err != nil {
+			panic(err)
+		}
+
+		return ast.Literal{Value: ast.Number(num)}, nil
 	case token.STRING:
 		s.advance()
-		return ast.Literal{Value: s.previous().Lexme}, nil
+		value := s.previous().Literal
+		return ast.Literal{Value: ast.String(value)}, nil
 	case token.LEFT_PAREN:
 		s.advance()
 		if expr, err := expression(s); err != nil {

@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -17,10 +18,7 @@ func (t Grouping) Print() string {
 }
 
 func (t Literal) Print() string {
-	if t.Value == "" {
-		return "nil"
-	}
-	return t.Value
+	return t.Value.Print()
 }
 
 func (t Unary) Print() string {
@@ -47,4 +45,29 @@ func parenthesize(name string, exprs ...PrettyPrint) string {
 
 	builder.WriteString(")")
 	return builder.String()
+}
+
+// values
+func (v Boolean) Print() string {
+	if v {
+		return "true"
+	} else {
+		return "false"
+	}
+}
+
+func (v Number) Print() string {
+	return strconv.FormatFloat(float64(v), 'f', -1, 64)
+}
+
+func (v Nil) Print() string {
+	return "nil"
+}
+
+func (v Object) Print() string {
+	return "object"
+}
+
+func (v String) Print() string {
+	return string(v)
 }

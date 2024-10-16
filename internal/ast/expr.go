@@ -6,6 +6,7 @@ import "github.com/LucazFFz/lox/internal/token"
 
 type Expr interface {
 	PrettyPrint
+	Evaluate
 }
 
 type Binary struct {
@@ -19,7 +20,7 @@ type Grouping struct {
 }
 
 type Literal struct {
-	Value string
+	Value Value
 }
 
 type Unary struct {

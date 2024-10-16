@@ -58,7 +58,7 @@ const _TokenType_name = "WHITESPACECOMMENTEOFLEFT_PARENRIGHT_PARENLEFT_BRACERIGH
 var _TokenType_index = [...]uint16{0, 10, 17, 20, 30, 41, 51, 62, 67, 70, 74, 79, 88, 93, 97, 101, 111, 116, 127, 134, 147, 151, 161, 166, 174, 184, 190, 196, 199, 204, 208, 213, 216, 219, 221, 224, 226, 231, 237, 242, 246, 250, 253, 258}
 
 func (i TokenType) String() string {
-	if i < 0 || i >= TokenType(len(_TokenType_index)-1) {
+	if i >= TokenType(len(_TokenType_index)-1) {
 		return "TokenType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _TokenType_name[_TokenType_index[i]:_TokenType_index[i+1]]
