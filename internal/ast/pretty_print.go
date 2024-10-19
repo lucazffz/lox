@@ -57,7 +57,7 @@ func (v Boolean) Print() string {
 }
 
 func (v Number) Print() string {
-	return strconv.FormatFloat(float64(v), 'f', -1, 64)
+	return strconv.FormatFloat(v.AsNumber(), 'f', -1, 64)
 }
 
 func (v Nil) Print() string {
@@ -69,5 +69,5 @@ func (v Object) Print() string {
 }
 
 func (v String) Print() string {
-	return string(v)
+	return v.AsString()
 }

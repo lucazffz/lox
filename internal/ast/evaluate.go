@@ -76,37 +76,37 @@ func (t Binary) Evaluate() (Value, error) {
 		return nil, NewRuntimeError("Operands must be of the same type")
 
 	case token.MINUS:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Number(left.AsNumber() - right.AsNumber()), nil
 	case token.STAR:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Number(left.AsNumber() * right.AsNumber()), nil
 	case token.SLASH:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Number(left.AsNumber() / right.AsNumber()), nil
 	case token.GREATER:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Boolean(left.AsNumber() > right.AsNumber()), nil
 	case token.GREATER_EQUAL:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Boolean(left.AsNumber() >= right.AsNumber()), nil
 	case token.LESS:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Boolean(left.AsNumber() < right.AsNumber()), nil
 	case token.LESS_EQUAL:
-		if checkNumberOperands(left, right) != nil {
+		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Boolean(left.AsNumber() <= right.AsNumber()), nil
