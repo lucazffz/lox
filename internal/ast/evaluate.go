@@ -81,7 +81,6 @@ func (t Binary) Evaluate() (Value, error) {
 		}
 
 		return nil, NewRuntimeError("operands must be of same type")
-
 	case token.MINUS:
 		if err := checkNumberOperands(left, right); err != nil {
 			return nil, err
@@ -111,7 +110,7 @@ func (t Binary) Evaluate() (Value, error) {
 			return Boolean(left.AsString() > right.AsString()), nil
 		}
 
-		return nil, NewRuntimeError("both operands must be numbers or strings")
+		return nil, NewRuntimeError("operands must be of same type")
 	case token.GREATER_EQUAL:
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() >= right.AsNumber()), nil
@@ -121,7 +120,7 @@ func (t Binary) Evaluate() (Value, error) {
 			return Boolean(left.AsString() >= right.AsString()), nil
 		}
 
-		return nil, NewRuntimeError("both operands must be numbers or strings")
+		return nil, NewRuntimeError("operands must be of same type")
 	case token.LESS:
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() < right.AsNumber()), nil
@@ -131,7 +130,7 @@ func (t Binary) Evaluate() (Value, error) {
 			return Boolean(left.AsString() < right.AsString()), nil
 		}
 
-		return nil, NewRuntimeError("both operands must be numbers or strings")
+		return nil, NewRuntimeError("operands must be of same type")
 	case token.LESS_EQUAL:
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() <= right.AsNumber()), nil
@@ -141,7 +140,7 @@ func (t Binary) Evaluate() (Value, error) {
 			return Boolean(left.AsString() <= right.AsString()), nil
 		}
 
-		return nil, NewRuntimeError("both operands must be numbers or strings")
+		return nil, NewRuntimeError("operands must be of same type")
 	case token.EQUAL_EQUAL:
 		return Boolean(equals(left, right)), nil
 	case token.BANG_EQUAL:
