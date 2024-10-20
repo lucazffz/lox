@@ -36,7 +36,7 @@ func (t Unary) Evaluate() (Value, error) {
 		return Boolean(!isTruthy(right)), nil
 	case token.MINUS:
 		if !isNumberValue(right) {
-			return nil, NewRuntimeError("Operand must be a number")
+			return nil, NewRuntimeError("operand must be a number")
 		}
 		return Number(-right.AsNumber()), nil
 
@@ -48,12 +48,19 @@ func (t Unary) Evaluate() (Value, error) {
 func (t Binary) Evaluate() (Value, error) {
 	checkNumberOperands := func(left, right Value) error {
 		if !isNumberValue(left) || !isNumberValue(right) {
-			return NewRuntimeError("Operands must be numbers")
+			return NewRuntimeError("both operands must be numbers")
 		}
 
 		return nil
 	}
 
+	checkStringOperands := func(left, right Value) error {
+		if !isStringValue(left) || !isStringValue(right) {
+			return NewRuntimeError("both operands must be numbers")
+		}
+
+		return nil
+	}
 	right, err := t.Right.Evaluate()
 	if err != nil {
 		return nil, err
@@ -91,30 +98,50 @@ func (t Binary) Evaluate() (Value, error) {
 		}
 
 		if right.AsNumber() == 0 {
-			return nil, NewRuntimeError("Division by zero")
+			return nil, NewRuntimeError("division by zero")
 		}
 
 		return Number(left.AsNumber() / right.AsNumber()), nil
 	case token.GREATER:
-		if err = checkNumberOperands(left, right); err != nil {
-			return nil, err
+		if err = checkNumberOperands(left, right); err == nil {
+			return Boolean(left.AsNumber() > right.AsNumber()), nil
 		}
-		return Boolean(left.AsNumber() > right.AsNumber()), nil
+
+		if err = checkStringOperands(left, right); err == nil {
+			return Boolean(left.AsString() > right.AsString()), nil
+		}
+
+		return nil, NewRuntimeError("both operands must be numbers or strings")
 	case token.GREATER_EQUAL:
-		if err = checkNumberOperands(left, right); err != nil {
-			return nil, err
+		if err = checkNumberOperands(left, right); err == nil {
+			return Boolean(left.AsNumber() >= right.AsNumber()), nil
 		}
-		return Boolean(left.AsNumber() >= right.AsNumber()), nil
+
+		if err = checkStringOperands(left, right); err == nil {
+			return Boolean(left.AsString() >= right.AsString()), nil
+		}
+
+		return nil, NewRuntimeError("both operands must be numbers or strings")
 	case token.LESS:
-		if err = checkNumberOperands(left, right); err != nil {
-			return nil, err
+		if err = checkNumberOperands(left, right); err == nil {
+			return Boolean(left.AsNumber() < right.AsNumber()), nil
 		}
-		return Boolean(left.AsNumber() < right.AsNumber()), nil
+
+		if err = checkStringOperands(left, right); err == nil {
+			return Boolean(left.AsString() < right.AsString()), nil
+		}
+
+		return nil, NewRuntimeError("both operands must be numbers or strings")
 	case token.LESS_EQUAL:
-		if err = checkNumberOperands(left, right); err != nil {
-			return nil, err
+		if err = checkNumberOperands(left, right); err == nil {
+			return Boolean(left.AsNumber() <= right.AsNumber()), nil
 		}
-		return Boolean(left.AsNumber() <= right.AsNumber()), nil
+
+		if err = checkStringOperands(left, right); err == nil {
+			return Boolean(left.AsString() <= right.AsString()), nil
+		}
+
+		return nil, NewRuntimeError("both operands must be numbers or strings")
 	case token.EQUAL_EQUAL:
 		return Boolean(equals(left, right)), nil
 	case token.BANG_EQUAL:
