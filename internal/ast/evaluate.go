@@ -56,7 +56,7 @@ func (t Binary) Evaluate() (Value, error) {
 
 	checkStringOperands := func(left, right Value) error {
 		if !isStringValue(left) || !isStringValue(right) {
-			return NewRuntimeError("both operands must be numbers")
+			return NewRuntimeError("both operands must be strings")
 		}
 
 		return nil
