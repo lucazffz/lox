@@ -94,6 +94,11 @@ func (t Binary) Evaluate() (Value, error) {
 		if err = checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
+
+		if right.AsNumber() == 0 {
+			return nil, NewRuntimeError("Division by zero")
+		}
+
 		return Boolean(left.AsNumber() > right.AsNumber()), nil
 	case token.GREATER_EQUAL:
 		if err = checkNumberOperands(left, right); err != nil {
