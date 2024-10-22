@@ -81,8 +81,15 @@ func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 
 func declaration(s *parser) (ast.Stmt, error) {
 	if s.match(token.VAR) {
-        s.advance()
-		return varDeclaration(s)
+		s.advance()
+		stmt, err := varDeclaration(s)
+		if err != nil {
+            // reset the parser state between declarations
+            // to aviod cascading errors
+			s.synchronize()
+			return nil, err
+		}
+		return stmt, nil
 	}
 
 	return stmt(s)
@@ -92,7 +99,7 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 	var name token.Token
 	err := s.consume(token.IDENTIFIER, "expected variable name")
 	if err != nil {
-        return nil, err
+		return nil, err
 	}
 
 	name = s.previous()
@@ -402,9 +409,9 @@ func primary(s *parser) (ast.Expr, error) {
 			s.consume(token.RIGHT_PAREN, "expected ')' after expression (primary)")
 			return ast.Grouping{Expr: expr}, nil
 		}
-    case token.IDENTIFIER: 
-        s.advance()
-        return ast.Variable{Name: s.previous()}, nil
+	case token.IDENTIFIER:
+		s.advance()
+		return ast.Variable{Name: s.previous()}, nil
 	default:
 		err := ParseError{
 			Line:    s.peek().Line,
@@ -456,7 +463,7 @@ func (s *parser) consume(typ token.TokenType, msg string) error {
 		Line:    s.peek().Line,
 		Lexme:   s.peek().Lexme,
 		Message: msg}
-    s.parseErrOccured = true
+	s.parseErrOccured = true
 	s.report(err)
 	return errors.New("")
 }

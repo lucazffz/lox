@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/LucazFFz/lox/internal/ast"
 	"github.com/LucazFFz/lox/internal/parse"
 	"github.com/LucazFFz/lox/internal/scan"
 	"github.com/urfave/cli/v2"
@@ -56,7 +57,7 @@ func execFile(path string) error {
 }
 
 func exec(source string) {
-    tokens := scan.Scan(source, report, scan.ScanContext{})
+	tokens := scan.Scan(source, report, scan.ScanContext{})
 	// for _, token := range tokens {
 	// 	fmt.Println(token)
 	// }
@@ -65,17 +66,12 @@ func exec(source string) {
 	if err != nil {
 		return
 	}
+
+	ast.Interpret(stmts, report)
 	// for _, token := range tokens {
 	// 	fmt.Println(token)
 	// }
 	//
-	for _, stmt := range stmts {
-        err := stmt.Evaluate()
-        if err != nil {
-            fmt.Println(err)
-        }
-	}
-
 
 	// fmt.Println(expr.Print())
 
@@ -90,6 +86,6 @@ func exec(source string) {
 func report(err error) {
 	switch e := err.(type) {
 	default:
-		fmt.Print(e)
+		fmt.Println(e)
 	}
 }

@@ -14,8 +14,6 @@ type RuntimeError struct {
 	message string
 }
 
-var environment = NewEnvironment()
-
 func NewRuntimeError(message string) RuntimeError {
 	return RuntimeError{message: message}
 }
@@ -24,15 +22,6 @@ func (r RuntimeError) Error() string {
 	return "Runtime error: " + r.message
 }
 
-func Evaluate(statements []Stmt) error {
-	for _, stmt := range statements {
-		if err := stmt.Evaluate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 // statements
 func (s Expression) Evaluate() error {
