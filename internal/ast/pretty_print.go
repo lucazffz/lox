@@ -29,6 +29,10 @@ func (t Ternary) Print() string {
 	return parenthesize("ternary", t.Condition, t.Left, t.Right)
 }
 
+func (t Variable) Print() string {
+    return parenthesize(t.Name.Lexme)
+}
+
 func (t Nothing) Print() string {
 	return parenthesize("Nothing")
 }

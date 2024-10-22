@@ -2,17 +2,22 @@
 
 package ast
 
-// import "github.com/LucazFFz/lox/internal/token"
+import "github.com/LucazFFz/lox/internal/token"
 
 type Stmt interface {
     EvaluateStmt
 }
 
 type Expression struct {
-Expr Expr;
+    Expr Expr;
 }
 
 type Print struct {
-Expr Expr;
+    Expr Expr;
+}
+
+type Var struct {
+    Name token.Token;
+    Initializer Expr;
 }
 

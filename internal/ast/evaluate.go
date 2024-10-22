@@ -14,6 +14,8 @@ type RuntimeError struct {
 	message string
 }
 
+var environment = NewEnvironment()
+
 func NewRuntimeError(message string) RuntimeError {
 	return RuntimeError{message: message}
 }
@@ -23,13 +25,13 @@ func (r RuntimeError) Error() string {
 }
 
 func Evaluate(statements []Stmt) error {
-    for _, stmt := range statements {
-        if err := stmt.Evaluate(); err != nil {
-            return err
-        }
-    }
+	for _, stmt := range statements {
+		if err := stmt.Evaluate(); err != nil {
+			return err
+		}
+	}
 
-    return nil
+	return nil
 }
 
 // statements
@@ -45,6 +47,20 @@ func (s Print) Evaluate() error {
 	}
 
 	println(expr.Print())
+	return nil
+}
+
+func (s Var) Evaluate() error {
+	if (s.Initializer == Nothing{}) {
+		environment.Define(s.Name.Lexme, Nil{})
+	}
+
+    value, err := s.Initializer.Evaluate()
+	if err != nil {
+		return err
+	}
+
+	environment.Define(s.Name.Lexme, value)
 	return nil
 }
 
@@ -192,6 +208,15 @@ func (t Ternary) Evaluate() (Value, error) {
 	}
 
 	return t.Right.Evaluate()
+}
+
+func (t Variable) Evaluate() (Value, error) {
+	value, err := environment.Get(t.Name.Lexme)
+    if err != nil {
+        return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
+    }
+
+    return value, nil
 }
 
 func (t Nothing) Evaluate() (Value, error) {

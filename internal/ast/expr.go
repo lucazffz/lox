@@ -23,6 +23,10 @@ type Literal struct {
 	Value Value
 }
 
+type Variable struct {
+    Name token.Token
+}
+
 type Unary struct {
 	Op    token.Token
 	Right Expr

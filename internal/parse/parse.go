@@ -65,8 +65,8 @@ func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 	var stmts []ast.Stmt = make([]ast.Stmt, 0)
 
 	for parser.peek().Type != token.EOF {
-		stmt, err := stmt(parser)
-        parser.advance()
+		stmt, err := declaration(parser)
+		parser.advance()
 		if err == nil {
 			stmts = append(stmts, stmt)
 		}
@@ -77,6 +77,37 @@ func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 	}
 
 	return stmts, nil
+}
+
+func declaration(s *parser) (ast.Stmt, error) {
+	if s.match(token.VAR) {
+        s.advance()
+		return varDeclaration(s)
+	}
+
+	return stmt(s)
+}
+
+func varDeclaration(s *parser) (ast.Stmt, error) {
+	var name token.Token
+	err := s.consume(token.IDENTIFIER, "expected variable name")
+	if err != nil {
+        return nil, err
+	}
+
+	name = s.previous()
+	var initializer ast.Expr = ast.Nothing{}
+	if s.match(token.EQUAL) {
+		s.advance()
+		initializer, err = expression(s)
+		if err != nil || s.parseErrOccured {
+			return nil, err
+		}
+	}
+
+	s.consume(token.SEMICOLON, "expected ';' after variable declaration")
+	return ast.Var{Name: name, Initializer: initializer}, nil
+
 }
 
 // Production rules:
@@ -94,8 +125,8 @@ func stmt(s *parser) (ast.Stmt, error) {
 //   - printStmt -> "print" expression ";";
 func printStmt(s *parser) (ast.Stmt, error) {
 	expr, err := expression(s)
-    // expressions usually do not return errors but create
-    // error productions
+	// expressions usually do not return errors but create
+	// error productions
 	if err != nil || s.parseErrOccured {
 		return nil, err
 	}
@@ -108,9 +139,9 @@ func printStmt(s *parser) (ast.Stmt, error) {
 //   - expressionStmt -> expression ";";
 func expressionStmt(s *parser) (ast.Stmt, error) {
 	expr, err := expression(s)
-    // expressions usually do not return errors but create
-    // error productions
-	if err != nil  || s.parseErrOccured {
+	// expressions usually do not return errors but create
+	// error productions
+	if err != nil || s.parseErrOccured {
 		return nil, err
 	}
 
@@ -371,6 +402,9 @@ func primary(s *parser) (ast.Expr, error) {
 			s.consume(token.RIGHT_PAREN, "expected ')' after expression (primary)")
 			return ast.Grouping{Expr: expr}, nil
 		}
+    case token.IDENTIFIER: 
+        s.advance()
+        return ast.Variable{Name: s.previous()}, nil
 	default:
 		err := ParseError{
 			Line:    s.peek().Line,
@@ -412,17 +446,19 @@ func (s *parser) synchronize() {
 	}
 }
 
-func (s *parser) consume(typ token.TokenType, msg string) {
+func (s *parser) consume(typ token.TokenType, msg string) error {
 	if s.check(typ) {
 		s.advance()
-		return
+		return nil
 	}
 
 	err := ParseError{
 		Line:    s.peek().Line,
 		Lexme:   s.peek().Lexme,
 		Message: msg}
+    s.parseErrOccured = true
 	s.report(err)
+	return errors.New("")
 }
 
 func (s *parser) match(types ...token.TokenType) bool {
