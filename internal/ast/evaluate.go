@@ -22,7 +22,6 @@ func (r RuntimeError) Error() string {
 	return "Runtime error: " + r.message
 }
 
-
 // statements
 func (s Expression) Evaluate() error {
 	_, err := s.Expr.Evaluate()
@@ -44,7 +43,7 @@ func (s Var) Evaluate() error {
 		environment.Define(s.Name.Lexme, Nil{})
 	}
 
-    value, err := s.Initializer.Evaluate()
+	value, err := s.Initializer.Evaluate()
 	if err != nil {
 		return err
 	}
@@ -201,11 +200,24 @@ func (t Ternary) Evaluate() (Value, error) {
 
 func (t Variable) Evaluate() (Value, error) {
 	value, err := environment.Get(t.Name.Lexme)
-    if err != nil {
-        return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
-    }
+	if err != nil {
+		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
+	}
 
-    return value, nil
+	return value, nil
+}
+
+func (t Assign) Evaluate() (Value, error) {
+	value, err := t.Value.Evaluate()
+	if err != nil {
+        return nil, err
+	}
+
+	if err := environment.Assign(t.Name.Lexme, value); err != nil {
+		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
+	}
+
+	return value, nil
 }
 
 func (t Nothing) Evaluate() (Value, error) {

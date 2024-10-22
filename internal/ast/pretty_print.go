@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -30,7 +31,11 @@ func (t Ternary) Print() string {
 }
 
 func (t Variable) Print() string {
-    return parenthesize(t.Name.Lexme)
+	return parenthesize(t.Name.Lexme)
+}
+
+func (t Assign) Print() string {
+	return fmt.Sprintf("(assign %s %s)", t.Name.Lexme, t.Value.Print())
 }
 
 func (t Nothing) Print() string {

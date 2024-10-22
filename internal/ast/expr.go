@@ -38,5 +38,10 @@ type Ternary struct {
 	Right     Expr
 }
 
+type Assign struct {
+    Name  token.Token
+    Value Expr
+}
+
 type Nothing struct {
 }

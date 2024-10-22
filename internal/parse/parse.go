@@ -84,8 +84,8 @@ func declaration(s *parser) (ast.Stmt, error) {
 		s.advance()
 		stmt, err := varDeclaration(s)
 		if err != nil {
-            // reset the parser state between declarations
-            // to aviod cascading errors
+			// reset the parser state between declarations
+			// to aviod cascading errors
 			s.synchronize()
 			return nil, err
 		}
@@ -157,11 +157,43 @@ func expressionStmt(s *parser) (ast.Stmt, error) {
 }
 
 // Production rules:
-//   - expression -> commma;
+//   - expression -> assignment;
 //   - precedence: none
 //   - ssociativity: none
 func expression(s *parser) (ast.Expr, error) {
-	return comma(s)
+	return assignment(s)
+}
+
+// Production rules:
+//   - assignment -> IDENTIFIER "=" assignment | conditional;
+//   - precedence: 16
+//   - associativity: right-to-left
+func assignment(s *parser) (ast.Expr, error) {
+	expr, err := comma(s)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.match(token.EQUAL) {
+		s.advance()
+		value, err := assignment(s)
+		if err != nil {
+			return nil, err
+		}
+
+		if expr, ok := expr.(ast.Variable); ok {
+			return ast.Assign{Name: expr.Name, Value: value}, nil
+		}
+
+		err = ParseError{
+			Line:    s.previous().Line,
+			Lexme:   s.previous().Lexme,
+			Message: "invalid assignment target"}
+		s.report(err)
+		return nil, errors.New("")
+	}
+
+	return expr, nil
 }
 
 // Production rules:
