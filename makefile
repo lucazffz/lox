@@ -12,11 +12,11 @@ vet: fmt
 	go vet ./...
 .PHONY:vet
 
-build: vet generate
+build: #vet generate
 	go build -o build
 .PHONY:build
 
-run: generate
+run: #generate
 	go run . 
 .PHONY:run 
 

@@ -6,7 +6,7 @@ import "github.com/LucazFFz/lox/internal/token"
 
 type Expr interface {
 	PrettyPrint
-	Evaluate
+	EvaluateExpr
 }
 
 type Binary struct {

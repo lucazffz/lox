@@ -2,8 +2,12 @@ package ast
 
 import "github.com/LucazFFz/lox/internal/token"
 
-type Evaluate interface {
+type EvaluateExpr interface {
 	Evaluate() (Value, error)
+}
+
+type EvaluateStmt interface {
+	Evaluate() error
 }
 
 type RuntimeError struct {
@@ -18,6 +22,33 @@ func (r RuntimeError) Error() string {
 	return "Runtime error: " + r.message
 }
 
+func Evaluate(statements []Stmt) error {
+    for _, stmt := range statements {
+        if err := stmt.Evaluate(); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+// statements
+func (s Expression) Evaluate() error {
+	_, err := s.Expr.Evaluate()
+	return err
+}
+
+func (s Print) Evaluate() error {
+	expr, err := s.Expr.Evaluate()
+	if err != nil {
+		return err
+	}
+
+	println(expr.Print())
+	return nil
+}
+
+// expressions
 func (t Literal) Evaluate() (Value, error) {
 	return t.Value, nil
 }

@@ -53,4 +53,11 @@ define_ast(
     "Nothing",
 )
 
+define_ast(
+    out_dir,
+    "stmt",
+    "Expression : Expr Expr",
+    "Print : Expr Expr",
+)
+
 subprocess.run(["go", "fmt", out_dir + "/expr.go"])

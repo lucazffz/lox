@@ -60,18 +60,62 @@ func (e ParseError) Error() string {
 //
 // NOTE: The returned error do not contain any information regarding
 // the given parse errors, that information is passed to report.
-func Parse(tokens []token.Token, report func(error)) (ast.Expr, error) {
+func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 	parser := newParser(tokens, report)
-	expr, err := expression(parser)
-	if err != nil {
-		return nil, err
+	var stmts []ast.Stmt = make([]ast.Stmt, 0)
+
+	for parser.peek().Type != token.EOF {
+		stmt, err := stmt(parser)
+        parser.advance()
+		if err == nil {
+			stmts = append(stmts, stmt)
+		}
 	}
 
 	if parser.parseErrOccured {
 		return nil, errors.New("parse error occured")
 	}
 
-	return expr, nil
+	return stmts, nil
+}
+
+// Production rules:
+//   - program -> statement* EOF;
+func stmt(s *parser) (ast.Stmt, error) {
+	if s.match(token.PRINT) {
+		s.advance()
+		return printStmt(s)
+	}
+
+	return expressionStmt(s)
+}
+
+// Production rules:
+//   - printStmt -> "print" expression ";";
+func printStmt(s *parser) (ast.Stmt, error) {
+	expr, err := expression(s)
+    // expressions usually do not return errors but create
+    // error productions
+	if err != nil || s.parseErrOccured {
+		return nil, err
+	}
+
+	s.consume(token.SEMICOLON, "expected ';' after expression")
+	return ast.Print{Expr: expr}, nil
+}
+
+// Production rules:
+//   - expressionStmt -> expression ";";
+func expressionStmt(s *parser) (ast.Stmt, error) {
+	expr, err := expression(s)
+    // expressions usually do not return errors but create
+    // error productions
+	if err != nil  || s.parseErrOccured {
+		return nil, err
+	}
+
+	s.consume(token.SEMICOLON, "expected ';' after expression")
+	return ast.Expression{Expr: expr}, nil
 }
 
 // Production rules:
