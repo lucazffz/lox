@@ -19,7 +19,7 @@ func NewRuntimeError(message string) RuntimeError {
 }
 
 func (r RuntimeError) Error() string {
-	return "Runtime error: " + r.message
+	return "runtime error - " + r.message + "\n"
 }
 
 // statements

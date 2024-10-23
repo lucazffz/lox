@@ -39,6 +39,10 @@ type ParseError struct {
 }
 
 func (e ParseError) Error() string {
+	if e.Lexme == "" {
+		return fmt.Sprintf("[%d] error - %s \n", e.Line, e.Message)
+	}
+
 	return fmt.Sprintf("[%d] error at \"%s\" - %s \n", e.Line, e.Lexme, e.Message)
 }
 
@@ -107,7 +111,7 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 	if s.match(token.EQUAL) {
 		s.advance()
 		initializer, err = expression(s)
-		if err != nil || s.parseErrOccured {
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -134,7 +138,7 @@ func printStmt(s *parser) (ast.Stmt, error) {
 	expr, err := expression(s)
 	// expressions usually do not return errors but create
 	// error productions
-	if err != nil || s.parseErrOccured {
+	if err != nil {
 		return nil, err
 	}
 
@@ -148,7 +152,7 @@ func expressionStmt(s *parser) (ast.Stmt, error) {
 	expr, err := expression(s)
 	// expressions usually do not return errors but create
 	// error productions
-	if err != nil || s.parseErrOccured {
+	if err != nil {
 		return nil, err
 	}
 
@@ -444,6 +448,9 @@ func primary(s *parser) (ast.Expr, error) {
 	case token.IDENTIFIER:
 		s.advance()
 		return ast.Variable{Name: s.previous()}, nil
+    case token.ERROR:
+        s.parseErrOccured = true
+        return ast.Nothing{}, nil
 	default:
 		err := ParseError{
 			Line:    s.peek().Line,

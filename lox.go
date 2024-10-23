@@ -57,10 +57,10 @@ func execFile(path string) error {
 }
 
 func exec(source string) {
-	tokens := scan.Scan(source, report, scan.ScanContext{})
-	// for _, token := range tokens {
-	// 	fmt.Println(token)
-	// }
+	tokens, _ := scan.Scan(source, report, scan.ScanContext{})
+	for _, token := range tokens {
+		fmt.Println(token)
+	}
 
 	stmts, err := parse.Parse(tokens, report)
 	if err != nil {
@@ -86,6 +86,6 @@ func exec(source string) {
 func report(err error) {
 	switch e := err.(type) {
 	default:
-		fmt.Println(e)
+		fmt.Print(e)
 	}
 }

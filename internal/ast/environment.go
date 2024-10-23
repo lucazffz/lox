@@ -1,7 +1,7 @@
 package ast
 
 import (
-    "errors"
+	"errors"
 )
 
 type Environment struct {
@@ -17,13 +17,13 @@ func (e *Environment) Define(name string, value Value) {
 }
 
 func (e *Environment) Assign(name string, value Value) error {
-    _, ok := e.enviornment[name]
-    if !ok {
-        return errors.New("")
-    }
+	_, ok := e.enviornment[name]
+	if !ok {
+		return errors.New("")
+	}
 
-    e.enviornment[name] = value
-    return nil
+	e.enviornment[name] = value
+	return nil
 }
 
 func (e *Environment) Get(name string) (Value, error) {

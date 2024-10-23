@@ -11,14 +11,15 @@ import (
 )
 
 type scanner struct {
-	src        string
-	tokenStart int
-	tokenEnd   int
-	line       int
-	keywords   map[string]token.TokenType
-	tokens     []token.Token
-	context    ScanContext
-	report     func(error)
+	src            string
+	tokenStart     int
+	tokenEnd       int
+	line           int
+	keywords       map[string]token.TokenType
+	tokens         []token.Token
+	context        ScanContext
+	report         func(error)
+	scanErrOccured bool
 }
 
 func newScanner(source string, report func(error), context ScanContext) *scanner {
@@ -41,7 +42,7 @@ func newScanner(source string, report func(error), context ScanContext) *scanner
 		"while":  token.WHILE,
 	}
 
-	return &scanner{source, 0, 0, 1, keywords, []token.Token{}, context, report}
+	return &scanner{source, 0, 0, 1, keywords, []token.Token{}, context, report, false}
 }
 
 type ScanContext struct {
@@ -59,7 +60,7 @@ func (e ScanError) Error() string {
 	return fmt.Sprintf("[%d] error at \"%s\" - %s \n", e.Line, e.Lexme, e.Message)
 }
 
-func Scan(source string, report func(error), context ScanContext) []token.Token {
+func Scan(source string, report func(error), context ScanContext) ([]token.Token, error) {
 	s := newScanner(source, report, context)
 	for !atEndOfFile(s) {
 		s.tokenEnd = s.tokenStart
@@ -68,7 +69,7 @@ func Scan(source string, report func(error), context ScanContext) []token.Token 
 
 	s.tokens = append(s.tokens, token.NewToken(token.EOF, "", nil, s.line))
 
-	return s.tokens
+	return s.tokens, nil
 }
 
 func scanToken(s *scanner) {
@@ -154,6 +155,8 @@ func scanToken(s *scanner) {
 		if err != nil {
 			err := ScanError{Line: s.line, Lexme: lexme, Message: err.Error()}
 			s.report(err)
+			s.scanErrOccured = true
+            s.tokens = append(s.tokens, token.NewToken(token.ERROR, lexme, nil, s.line))
 			break
 		}
 
@@ -181,6 +184,8 @@ func scanToken(s *scanner) {
 		}
 
 		err := ScanError{Line: s.line, Lexme: getLexme(s, 0, 0), Message: "unexpected character '" + string(c) + "'"}
+		s.tokens = append(s.tokens, token.NewToken(token.ERROR, getLexme(s, 0, 0), nil, s.line))
+		s.scanErrOccured = true
 		s.report(err)
 	}
 }

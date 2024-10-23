@@ -26,6 +26,7 @@ const (
 	WHITESPACE TokenType = iota
 	COMMENT
 	EOF
+    ERROR
 
 	// Single-character tokens.
 	LEFT_PAREN
