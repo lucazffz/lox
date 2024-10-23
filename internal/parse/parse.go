@@ -83,6 +83,20 @@ func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 	return stmts, nil
 }
 
+func ParseExpression(tokens []token.Token, report func(error)) (ast.Expr, error) {
+	parser := newParser(tokens, report)
+	expr, err := expression(parser)
+	if err != nil {
+		return nil, err
+	}
+
+	if parser.parseErrOccured {
+		return nil, errors.New("parse error occured")
+	}
+
+	return expr, nil
+}
+
 // program -> declaration* EOF;
 
 // Production rules:
