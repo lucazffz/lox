@@ -21,3 +21,6 @@ type Var struct {
     Initializer Expr;
 }
 
+type Block struct {
+    Statements[] Stmt
+}

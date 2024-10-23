@@ -83,6 +83,10 @@ func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 	return stmts, nil
 }
 
+// program -> declaration* EOF;
+
+// Production rules:
+//   - declaration -> varDeclaration | statement;
 func declaration(s *parser) (ast.Stmt, error) {
 	if s.match(token.VAR) {
 		s.advance()
@@ -96,9 +100,11 @@ func declaration(s *parser) (ast.Stmt, error) {
 		return stmt, nil
 	}
 
-	return stmt(s)
+	return statement(s)
 }
 
+// Production rules:
+//   - varDeclaration -> "var" IDENTIFIER ( "=" expression)? ";";
 func varDeclaration(s *parser) (ast.Stmt, error) {
 	var name token.Token
 	err := s.consume(token.IDENTIFIER, "expected variable name")
@@ -116,17 +122,24 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 		}
 	}
 
-	s.consume(token.SEMICOLON, "expected ';' after variable declaration")
-	return ast.Var{Name: name, Initializer: initializer}, nil
+	if err := s.consume(token.SEMICOLON, "expected ';' after variable declaration"); err != nil {
+		return nil, err
+	}
 
+	return ast.Var{Name: name, Initializer: initializer}, nil
 }
 
 // Production rules:
-//   - program -> statement* EOF;
-func stmt(s *parser) (ast.Stmt, error) {
+//   - statement -> exprStmt | printStmt | blockStmt;
+func statement(s *parser) (ast.Stmt, error) {
 	if s.match(token.PRINT) {
 		s.advance()
 		return printStmt(s)
+	}
+
+	if s.match(token.LEFT_BRACE) {
+		s.advance()
+		return blockStmt(s)
 	}
 
 	return expressionStmt(s)
@@ -142,8 +155,32 @@ func printStmt(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	s.consume(token.SEMICOLON, "expected ';' after expression")
+	if err := s.consume(token.SEMICOLON, "expected ';' after expression"); err != nil {
+		return nil, err
+	}
+
 	return ast.Print{Expr: expr}, nil
+}
+
+// Production rules:
+//   - blockStmt -> "{" declaration* "}";
+func blockStmt(s *parser) (ast.Stmt, error) {
+	var statements []ast.Stmt
+
+	for !s.check(token.RIGHT_BRACE) && !s.atEndOfFile() {
+		stmt, err := declaration(s)
+		if err != nil {
+			return nil, err
+		}
+
+		statements = append(statements, stmt)
+	}
+
+	if err := s.consume(token.RIGHT_BRACE, "expected '}' after block statement"); err != nil {
+		return nil, err
+	}
+
+	return ast.Block{Statements: statements}, nil
 }
 
 // Production rules:
@@ -156,7 +193,10 @@ func expressionStmt(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	s.consume(token.SEMICOLON, "expected ';' after expression")
+	if err := s.consume(token.SEMICOLON, "expected ';' after expression"); err != nil {
+		return nil, err
+	}
+
 	return ast.Expression{Expr: expr}, nil
 }
 
@@ -448,9 +488,9 @@ func primary(s *parser) (ast.Expr, error) {
 	case token.IDENTIFIER:
 		s.advance()
 		return ast.Variable{Name: s.previous()}, nil
-    case token.ERROR:
-        s.parseErrOccured = true
-        return ast.Nothing{}, nil
+	case token.ERROR:
+		s.parseErrOccured = true
+		return ast.Nothing{}, nil
 	default:
 		err := ParseError{
 			Line:    s.peek().Line,

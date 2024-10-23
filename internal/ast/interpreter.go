@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-var environment = NewEnvironment()
+var environment = NewEnvironment(nil)
 
 func Interpret(statements []Stmt, report func(error)) error {
 	var errorHasOccured = false

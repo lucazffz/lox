@@ -38,9 +38,25 @@ func (s Print) Evaluate() error {
 	return nil
 }
 
+func (s Block) Evaluate() error {
+	previous := environment
+	environment = NewEnvironment(environment)
+
+	for _, statement := range s.Statements {
+		err := statement.Evaluate()
+		if err != nil {
+			environment = previous
+			return err
+		}
+	}
+
+	environment = previous
+	return nil
+}
+
 func (s Var) Evaluate() error {
 	if (s.Initializer == Nothing{}) {
-		environment.Define(s.Name.Lexme, Nil{})
+		environment.Define(s.Name, Nil{})
 	}
 
 	value, err := s.Initializer.Evaluate()
@@ -48,7 +64,7 @@ func (s Var) Evaluate() error {
 		return err
 	}
 
-	environment.Define(s.Name.Lexme, value)
+	environment.Define(s.Name, value)
 	return nil
 }
 
@@ -199,7 +215,7 @@ func (t Ternary) Evaluate() (Value, error) {
 }
 
 func (t Variable) Evaluate() (Value, error) {
-	value, err := environment.Get(t.Name.Lexme)
+	value, err := environment.Get(t.Name)
 	if err != nil {
 		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
 	}
@@ -210,10 +226,10 @@ func (t Variable) Evaluate() (Value, error) {
 func (t Assign) Evaluate() (Value, error) {
 	value, err := t.Value.Evaluate()
 	if err != nil {
-        return nil, err
+		return nil, err
 	}
 
-	if err := environment.Assign(t.Name.Lexme, value); err != nil {
+	if err := environment.Assign(t.Name, value); err != nil {
 		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
 	}
 
