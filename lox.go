@@ -20,8 +20,9 @@ func main() {
 		UsageText:   "lox [script] - Script might be omitted to enter interactive mode.",
 		Action: func(cCtx *cli.Context) error {
 			if cCtx.Args().Len() == 0 {
-				runPrompt()
-				return nil
+				runRepl()
+				print("Leaving Lox REPL")
+				return cli.Exit("", 0)
 			} else if cCtx.Args().Len() == 1 {
 				err := runFile(cCtx.Args().First())
 				if err != nil {
@@ -38,15 +39,41 @@ func main() {
 	}
 }
 
-func runPrompt() {
+func runRepl() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Print(">")
+		fmt.Print("lox>")
 		text, _ := reader.ReadString('\n')
-		text = strings.TrimRight(text, " ")
-		if text[len(text)-2] != ';' {
+		text = strings.Trim(text, " ")
+		if len(text) < 2 {
+			continue
+		}
+		// if the first character is a colon, it is a command
+		if text[0] == ':' {
+			// exit command
+			if text[1] == 'q' {
+				break
+			}
+			// } else if text[len(text)-2] == '{' {
+			//           // multiline block
+			// 	var block strings.Builder
+			// 	block.WriteString(text)
+			// 	for {
+			// 		fmt.Print("   :")
+			// 		text, _ := reader.ReadString('\n')
+			// 		block.WriteString(text)
+			// 		if text[len(text)-2] == '}' {
+			// 			exec(string(block.String()))
+			// 			break
+			// 		}
+			// 	}
+			//
+		} else if text[len(text)-2] != ';' && text[len(text)-2] != '}' {
+			// execute expression
 			execExpr(string(text))
+			continue
 		} else {
+			// execute statement
 			exec(string(text))
 		}
 	}
