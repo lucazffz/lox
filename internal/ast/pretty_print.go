@@ -81,20 +81,27 @@ func (v String) Print() string {
 	return v.AsString()
 }
 
-
 // statements
 func (s Expression) Print() string {
-    return parenthesize("exprStmt", s.Expr)
+	return parenthesize("expr", s.Expr)
 }
 
 func (s Print) Print() string {
-    return parenthesize("printStmt", s.Expr)
+	return parenthesize("print", s.Expr)
 }
 
 func (s Var) Print() string {
-    return parenthesize("varStmt", s.Initializer)
+	return parenthesize("var", s.Initializer)
 }
 
 func (s Block) Print() string {
-    panic("todo")
-} 
+	// cannot do parenthesize("block", s.Statements...)
+	// because go will not convert from Stmt[] to PrettyPrint[]
+	// because it generally does not do implicit conversions with time
+	// complexity > O(1) apparently
+	args := make([]PrettyPrint, len(s.Statements))
+	for i := range s.Statements {
+		args[i] = s.Statements[i]
+	}
+	return parenthesize("block", args...)
+}
