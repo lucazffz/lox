@@ -129,6 +129,10 @@ func exec(source string) {
 	// }
 
 	stmts, err := parse.Parse(tokens, report)
+    for _, stmt := range(stmts) {
+        println(stmt.Print())
+
+    }
 	if err != nil {
 		return
 	}

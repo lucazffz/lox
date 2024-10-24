@@ -80,3 +80,21 @@ func (v Object) Print() string {
 func (v String) Print() string {
 	return v.AsString()
 }
+
+
+// statements
+func (s Expression) Print() string {
+    return parenthesize("exprStmt", s.Expr)
+}
+
+func (s Print) Print() string {
+    return parenthesize("printStmt", s.Expr)
+}
+
+func (s Var) Print() string {
+    return parenthesize("varStmt", s.Initializer)
+}
+
+func (s Block) Print() string {
+    panic("todo")
+} 

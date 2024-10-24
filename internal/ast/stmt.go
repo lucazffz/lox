@@ -6,6 +6,7 @@ import "github.com/LucazFFz/lox/internal/token"
 
 type Stmt interface {
     EvaluateStmt
+    PrettyPrint
 }
 
 type Expression struct {

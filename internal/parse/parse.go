@@ -1,5 +1,3 @@
-// A recursive descent parser implementing the Lox programming language.
-//
 // Precedence and associativity rules are based on
 // the C programming language. For full spec, see [C Operator Precedence].
 //
@@ -70,7 +68,7 @@ func Parse(tokens []token.Token, report func(error)) ([]ast.Stmt, error) {
 
 	for parser.peek().Type != token.EOF {
 		stmt, err := declaration(parser)
-		parser.advance()
+		// parser.advance()
 		if err == nil {
 			stmts = append(stmts, stmt)
 		}
