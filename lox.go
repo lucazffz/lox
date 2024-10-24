@@ -40,42 +40,59 @@ func main() {
 }
 
 func runRepl() {
+	block_mode := false
 	reader := bufio.NewReader(os.Stdin)
+	var text string
 	for {
-		fmt.Print("lox>")
-		text, _ := reader.ReadString('\n')
-		text = strings.Trim(text, " ")
-		if len(text) < 2 {
+		if block_mode {
+			var block strings.Builder
+			for {
+				fmt.Print("lox|")
+				text, _ = reader.ReadString('\n')
+				block.WriteString(text)
+				if len(text) < 2 {
+					block_mode = false
+					text = block.String()
+					break
+				}
+			}
+		} else {
+			fmt.Print("lox>")
+			text, _ = reader.ReadString('\n')
+		}
+
+		text = strings.Trim(text, "\n ")
+
+		if text == "" {
 			continue
 		}
 		// if the first character is a colon, it is a command
 		if text[0] == ':' {
-			// exit command
-			if text[1] == 'q' {
-				break
+			// be careful not to index out of range
+			if len(text) == 2 {
+				// exit command
+				if text[1] == 'q' {
+					return
+				}
+			} else if len(text) == 4 {
+				if text[1:4] == "blk" {
+					block_mode = true
+					continue
+				}
 			}
-			// } else if text[len(text)-2] == '{' {
-			//           // multiline block
-			// 	var block strings.Builder
-			// 	block.WriteString(text)
-			// 	for {
-			// 		fmt.Print("   :")
-			// 		text, _ := reader.ReadString('\n')
-			// 		block.WriteString(text)
-			// 		if text[len(text)-2] == '}' {
-			// 			exec(string(block.String()))
-			// 			break
-			// 		}
-			// 	}
-			//
-		} else if text[len(text)-2] != ';' && text[len(text)-2] != '}' {
+
+			println("unrecognized command")
+			continue
+		}
+
+		if text[len(text)-1] != ';' && text[len(text)-1] != '}' {
 			// execute expression
 			execExpr(string(text))
 			continue
-		} else {
-			// execute statement
-			exec(string(text))
 		}
+
+		// execute statement
+		exec(string(text))
 	}
 }
 
