@@ -24,8 +24,8 @@ type scanner struct {
 
 func newScanner(source string, report func(error), context ScanContext) *scanner {
 	keywords := map[string]token.TokenType{
-		"and":    token.AND,
 		"class":  token.CLASS,
+		"and":    token.AND,
 		"else":   token.ELSE,
 		"false":  token.FALSE,
 		"for":    token.FOR,

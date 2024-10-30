@@ -142,8 +142,12 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 }
 
 // Production rules:
-//   - statement -> exprStmt | printStmt | blockStmt;
+//   - statement -> exprStmt | printStmt | blockStmt | ifStmt;
 func statement(s *parser) (ast.Stmt, error) {
+	if s.match(token.IF) {
+		s.advance()
+		return ifStmt(s)
+	}
 	if s.match(token.PRINT) {
 		s.advance()
 		return printStmt(s)
@@ -196,6 +200,34 @@ func blockStmt(s *parser) (ast.Stmt, error) {
 }
 
 // Production rules:
+// - ifStmt -> "if" "(" expression ")" statement ("else" statement)?;
+func ifStmt(s *parser) (ast.Stmt, error) {
+	s.consume(token.LEFT_PAREN, "expected '(' after 'if'")
+	condition, err := expression(s)
+	if err != nil {
+		return nil, err
+	}
+	s.consume(token.RIGHT_PAREN, "expected ')' after 'if'")
+	thenBranch, err := statement(s)
+	if err != nil {
+		return nil, err
+	}
+	var elseBranch ast.Stmt = nil
+	if s.match(token.ELSE) {
+		s.advance()
+		var err error = nil
+		elseBranch, err = statement(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ast.If{Condition: condition,
+		ThenBranch: thenBranch,
+		ElseBranch: elseBranch}, nil
+}
+
+// Production rules:
 //   - expressionStmt -> expression ";";
 func expressionStmt(s *parser) (ast.Stmt, error) {
 	expr, err := expression(s)
@@ -221,7 +253,7 @@ func expression(s *parser) (ast.Expr, error) {
 }
 
 // Production rules:
-//   - assignment -> IDENTIFIER "=" assignment | conditional;
+//   - assignment -> IDENTIFIER "=" (assignment | comma);
 //   - precedence: 16
 //   - associativity: right-to-left
 func assignment(s *parser) (ast.Expr, error) {
@@ -275,11 +307,11 @@ func comma(s *parser) (ast.Expr, error) {
 }
 
 // Production rules:
-//   - conditional -> equlity "?" equality ":" conditional | equality;
+//   - conditional -> logical_or "?" logical_or ":" (conditional | logical_or);
 //   - precedence: 13
 //   - associativity: right-to-left
 func conditional(s *parser) (ast.Expr, error) {
-	expr, err := equality(s)
+	expr, err := logicalOr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +321,7 @@ func conditional(s *parser) (ast.Expr, error) {
 	}
 
 	s.advance()
-	left, err := equality(s)
+	left, err := logicalOr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +346,55 @@ func conditional(s *parser) (ast.Expr, error) {
 }
 
 // Production rules:
-//   - quality -> (nothing | comparison) (("!=" | "==") (nothing | comparison))*;
+// - logical_or -> logical_and ("or" logical_and)*;
+// - precedence: 12
+// associativity: left-to-right
+func logicalOr(s *parser) (ast.Expr, error) {
+	expr, err := logicalAnd(s)
+	if err != nil {
+		return nil, err
+	}
+
+	for s.match(token.OR) {
+		operator := s.peek()
+		s.advance()
+		right, err := logicalAnd(s)
+		if err != nil {
+			right = handleMissingExpression(s, s.previous().Lexme,
+				"missing right-hand-side operand (logical_or)")
+		}
+		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+	}
+
+	return expr, nil
+}
+
+// Production rules:
+// - logical_and -> equality ("and" equality)*;
+// - precedence: 11
+// associativity: left-to-right
+func logicalAnd(s *parser) (ast.Expr, error) {
+	expr, err := equality(s)
+	if err != nil {
+		return nil, err
+	}
+
+	for s.match(token.AND) {
+		operator := s.peek()
+		s.advance()
+		right, err := equality(s)
+		if err != nil {
+			right = handleMissingExpression(s, s.previous().Lexme,
+				"missing right-hand-side operand (logical_and)")
+		}
+		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+	}
+
+	return expr, nil
+}
+
+// Production rules:
+//   - equality -> (nothing | comparison) (("!=" | "==") (nothing | comparison))*;
 //   - precedence: 7
 //   - associativity: left-to-right
 func equality(s *parser) (ast.Expr, error) {

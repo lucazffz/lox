@@ -25,3 +25,10 @@ type Var struct {
 type Block struct {
     Statements[] Stmt
 }
+
+type If struct {
+    Condition Expr;
+    ThenBranch Stmt;
+    ElseBranch Stmt;
+}
+

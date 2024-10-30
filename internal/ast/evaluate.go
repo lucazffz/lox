@@ -68,6 +68,27 @@ func (s Var) Evaluate() error {
 	return nil
 }
 
+func (s If) Evaluate() error {
+	value, err := s.Condition.Evaluate()
+	if err != nil {
+		return err
+	}
+
+	if isTruthy(value) {
+		err := s.ThenBranch.Evaluate()
+		if err != nil {
+			return err
+		}
+	} else if s.ElseBranch != nil {
+		err := s.ElseBranch.Evaluate()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // expressions
 func (t Literal) Evaluate() (Value, error) {
 	return t.Value, nil
@@ -112,17 +133,46 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return nil
 	}
-	right, err := t.Right.Evaluate()
-	if err != nil {
-		return nil, err
-	}
-	left, err := t.Left.Evaluate()
-	if err != nil {
-		return nil, err
+
+	evaluateOperands := func() (Value, Value, error) {
+		left, err := t.Left.Evaluate()
+		if err != nil {
+			return nil, nil, err
+		}
+		right, err := t.Right.Evaluate()
+		if err != nil {
+			return nil, nil, err
+		}
+		return left, right, nil
 	}
 
 	switch t.Op.Type {
+	case token.AND:
+		fallthrough
+	case token.OR:
+		left, err := t.Left.Evaluate()
+		if err != nil {
+			return nil, err
+		}
+
+		if token.OR == t.Op.Type {
+			if isTruthy(left) {
+				return left, nil
+			}
+		} else {
+			if !isTruthy(left) {
+				return left, nil
+			}
+		}
+
+		// if AND we know that left is true here, if OR we know
+		// that left is false
+		return t.Right.Evaluate()
 	case token.PLUS:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err == nil {
 			return Number(left.AsNumber() + right.AsNumber()), nil
 		}
@@ -133,16 +183,28 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return nil, NewRuntimeError("operands must be of same type")
 	case token.MINUS:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Number(left.AsNumber() - right.AsNumber()), nil
 	case token.STAR:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
 		return Number(left.AsNumber() * right.AsNumber()), nil
 	case token.SLASH:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
@@ -153,6 +215,10 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return Number(left.AsNumber() / right.AsNumber()), nil
 	case token.GREATER:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() > right.AsNumber()), nil
 		}
@@ -163,6 +229,10 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return nil, NewRuntimeError("operands must be of same type")
 	case token.GREATER_EQUAL:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() >= right.AsNumber()), nil
 		}
@@ -173,6 +243,10 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return nil, NewRuntimeError("operands must be of same type")
 	case token.LESS:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() < right.AsNumber()), nil
 		}
@@ -183,6 +257,10 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return nil, NewRuntimeError("operands must be of same type")
 	case token.LESS_EQUAL:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		if err := checkNumberOperands(left, right); err == nil {
 			return Boolean(left.AsNumber() <= right.AsNumber()), nil
 		}
@@ -193,12 +271,20 @@ func (t Binary) Evaluate() (Value, error) {
 
 		return nil, NewRuntimeError("operands must be of same type")
 	case token.EQUAL_EQUAL:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		return Boolean(equals(left, right)), nil
 	case token.BANG_EQUAL:
+		left, right, err := evaluateOperands()
+		if err != nil {
+			return nil, err
+		}
 		return Boolean(!equals(left, right)), nil
 	}
 
-	panic("should never reach here")
+	panic("should never reach here (binary)")
 }
 
 func (t Ternary) Evaluate() (Value, error) {

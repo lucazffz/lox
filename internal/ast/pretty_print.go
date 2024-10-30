@@ -94,6 +94,13 @@ func (s Var) Print() string {
 	return parenthesize("var", s.Initializer)
 }
 
+func (s If) Print() string {
+	if s.ElseBranch != nil {
+		return parenthesize("if", s.Condition, s.ThenBranch, s.ElseBranch)
+	}
+	return parenthesize("if", s.Condition, s.ThenBranch)
+}
+
 func (s Block) Print() string {
 	// cannot do parenthesize("block", s.Statements...)
 	// because go will not convert from Stmt[] to PrettyPrint[]
