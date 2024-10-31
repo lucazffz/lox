@@ -10,6 +10,16 @@ type EvaluateStmt interface {
 	Evaluate() error
 }
 
+// evaluating a break statement will return a BreakError
+// (a type of runtime error) which we can catch when
+// evaluating a while loop and break out of the loop
+// unsure if this is the best way to handle this
+type BreakError struct{}
+
+func (b BreakError) Error() string {
+	return "runtime error - unexpected break statement outside of loop\n"
+}
+
 type RuntimeError struct {
 	message string
 }
@@ -98,6 +108,12 @@ func (s While) Evaluate() error {
 	for isTruthy(value) {
 		err := s.Body.Evaluate()
 		if err != nil {
+			// if we encounter a breakError,
+			// we want to break out of the loop
+			if _, ok := err.(BreakError); ok {
+				return nil
+			}
+
 			return err
 		}
 
@@ -108,6 +124,10 @@ func (s While) Evaluate() error {
 	}
 
 	return nil
+}
+
+func (s Break) Evaluate() error {
+	return BreakError{}
 }
 
 // expressions

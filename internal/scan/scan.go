@@ -40,6 +40,7 @@ func newScanner(source string, report func(error), context ScanContext) *scanner
 		"true":   token.TRUE,
 		"var":    token.VAR,
 		"while":  token.WHILE,
+        "break":  token.BREAK,
 	}
 
 	return &scanner{source, 0, 0, 1, keywords, []token.Token{}, context, report, false}

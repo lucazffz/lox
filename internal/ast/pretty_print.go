@@ -116,3 +116,7 @@ func (s Block) Print() string {
 	}
 	return parenthesize("block", args...)
 }
+
+func (s Break) Print() string {
+	return parenthesize("break")
+}

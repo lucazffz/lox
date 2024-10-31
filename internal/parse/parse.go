@@ -143,7 +143,7 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 
 // Production rules:
 //   - statement -> exprStmt | printStmt | blockStmt |
-//     ifStmt | whileStmt | forStmt;
+//     ifStmt | whileStmt | forStmt | breakStmt;
 func statement(s *parser) (ast.Stmt, error) {
 	if s.match(token.IF) {
 		s.advance()
@@ -158,6 +158,14 @@ func statement(s *parser) (ast.Stmt, error) {
 	if s.match(token.FOR) {
 		s.advance()
 		return forStmt(s)
+	}
+
+	if s.match(token.BREAK) {
+		s.advance()
+		if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
+			return nil, err
+		}
+		return ast.Break{}, nil
 	}
 
 	if s.match(token.PRINT) {
@@ -300,7 +308,7 @@ func forStmt(s *parser) (ast.Stmt, error) {
 	}
 	s.consume(token.RIGHT_PAREN, "expected ')' after for clause")
 
-    // create ast
+	// create ast
 	var body ast.Stmt = nil
 	body, err = statement(s)
 	if err != nil {
@@ -315,18 +323,18 @@ func forStmt(s *parser) (ast.Stmt, error) {
 		}
 	}
 
-    if condition == nil {
-        var value ast.Boolean = true
-        condition = ast.Literal{Value: value}
-    }
+	if condition == nil {
+		var value ast.Boolean = true
+		condition = ast.Literal{Value: value}
+	}
 
-    body = ast.While{Condition: condition, Body: body}
+	body = ast.While{Condition: condition, Body: body}
 
-    if initializer != nil {
-        body = ast.Block{
-            Statements: []ast.Stmt{initializer, body},
-        }
-    }
+	if initializer != nil {
+		body = ast.Block{
+			Statements: []ast.Stmt{initializer, body},
+		}
+	}
 
 	return body, nil
 }
