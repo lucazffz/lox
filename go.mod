@@ -1,6 +1,6 @@
 module github.com/LucazFFz/lox
 
-go 1.22.5
+go 1.23.2
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
