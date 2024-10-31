@@ -3,7 +3,7 @@ build/*
 !build/.gitkeep
 
 #ignore lox files
-*.lox
+test.lox
 
 .vscode/*
 
