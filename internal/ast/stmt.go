@@ -32,3 +32,7 @@ type If struct {
     ElseBranch Stmt;
 }
 
+type While struct {
+    Condition Expr;
+    Body Stmt;
+}

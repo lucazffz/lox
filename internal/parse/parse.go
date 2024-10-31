@@ -142,12 +142,24 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 }
 
 // Production rules:
-//   - statement -> exprStmt | printStmt | blockStmt | ifStmt;
+//   - statement -> exprStmt | printStmt | blockStmt |
+//     ifStmt | whileStmt | forStmt;
 func statement(s *parser) (ast.Stmt, error) {
 	if s.match(token.IF) {
 		s.advance()
 		return ifStmt(s)
 	}
+
+	if s.match(token.WHILE) {
+		s.advance()
+		return whileStmt(s)
+	}
+
+	if s.match(token.FOR) {
+		s.advance()
+		return forStmt(s)
+	}
+
 	if s.match(token.PRINT) {
 		s.advance()
 		return printStmt(s)
@@ -225,6 +237,98 @@ func ifStmt(s *parser) (ast.Stmt, error) {
 	return ast.If{Condition: condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch}, nil
+}
+
+// Production rules:
+// - whileStmt -> "while" "(" expression ")" statement;
+func whileStmt(s *parser) (ast.Stmt, error) {
+	s.consume(token.LEFT_PAREN, "expected '(' after 'while'")
+	condition, err := expression(s)
+	if err != nil {
+		return nil, err
+	}
+
+	s.consume(token.RIGHT_PAREN, "expected ')' after 'while'")
+	body, err := statement(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return ast.While{Condition: condition, Body: body}, nil
+}
+
+// Production rules:
+//   - forStmt -> "for" "(" ( varDecl | exprStmt | ";")
+//     expression? ";"
+//     expression? ")" statement;
+func forStmt(s *parser) (ast.Stmt, error) {
+	s.consume(token.LEFT_PAREN, "expected '(' after 'for'")
+
+	var initializer ast.Stmt = nil
+	var err error = nil
+	if s.match(token.SEMICOLON) {
+		s.advance()
+		initializer = nil
+	} else if s.match(token.VAR) {
+		s.advance()
+		initializer, err = varDeclaration(s)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		initializer, err = expressionStmt(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var condition ast.Expr = nil
+	if !s.check(token.SEMICOLON) {
+		condition, err = expression(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	s.consume(token.SEMICOLON, "expected ';' after loop condition")
+
+	var incrementer ast.Expr = nil
+	if !s.check(token.RIGHT_PAREN) {
+		incrementer, err = expression(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	s.consume(token.RIGHT_PAREN, "expected ')' after for clause")
+
+    // create ast
+	var body ast.Stmt = nil
+	body, err = statement(s)
+	if err != nil {
+		return nil, err
+	}
+
+	if incrementer != nil {
+		body = ast.Block{
+			Statements: []ast.Stmt{
+				body,
+				ast.Expression{Expr: incrementer}},
+		}
+	}
+
+    if condition == nil {
+        var value ast.Boolean = true
+        condition = ast.Literal{Value: value}
+    }
+
+    body = ast.While{Condition: condition, Body: body}
+
+    if initializer != nil {
+        body = ast.Block{
+            Statements: []ast.Stmt{initializer, body},
+        }
+    }
+
+	return body, nil
 }
 
 // Production rules:

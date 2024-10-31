@@ -89,6 +89,27 @@ func (s If) Evaluate() error {
 	return nil
 }
 
+func (s While) Evaluate() error {
+	value, err := s.Condition.Evaluate()
+	if err != nil {
+		return err
+	}
+
+	for isTruthy(value) {
+		err := s.Body.Evaluate()
+		if err != nil {
+			return err
+		}
+
+		value, err = s.Condition.Evaluate()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // expressions
 func (t Literal) Evaluate() (Value, error) {
 	return t.Value, nil

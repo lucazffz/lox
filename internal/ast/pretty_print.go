@@ -101,6 +101,10 @@ func (s If) Print() string {
 	return parenthesize("if", s.Condition, s.ThenBranch)
 }
 
+func (s While) Print() string {
+	return parenthesize("while", s.Condition, s.Body)
+}
+
 func (s Block) Print() string {
 	// cannot do parenthesize("block", s.Statements...)
 	// because go will not convert from Stmt[] to PrettyPrint[]
