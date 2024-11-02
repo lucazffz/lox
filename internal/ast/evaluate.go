@@ -45,12 +45,17 @@ func (s ExpressionStmt) Evaluate() error {
 }
 
 func (s PrintStmt) Evaluate() error {
-	expr, err := s.Expr.Evaluate()
+	value, err := s.Expr.Evaluate()
 	if err != nil {
 		return err
 	}
 
-	println(expr.Print())
+	str, err := valueToString(value)
+	if err != nil {
+		return err
+	}
+
+	println(str)
 	return nil
 }
 

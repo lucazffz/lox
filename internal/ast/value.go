@@ -1,12 +1,11 @@
 package ast
 
-
 import (
 	"fmt"
 )
 
 type LoxValue interface {
-	PrettyPrint
+	DebugPrint
 	Type() LoxValueType
 }
 
@@ -16,6 +15,7 @@ type Callable interface {
 	Arity() int
 }
 
+//go:generate stringer -type=LoxValueType
 type LoxValueType uint8
 
 type LoxObject struct{}
@@ -25,6 +25,10 @@ type LoxBoolean bool
 type LoxNumber float64
 
 type LoxString string
+
+type LoxType struct {
+	Typ LoxValueType
+}
 
 type LoxNil struct{}
 
@@ -45,6 +49,7 @@ const (
 	STRING
 	OBJECT
 	FUNCTION
+	TYPE
 )
 
 func isBool(v LoxValue) bool {
@@ -78,7 +83,37 @@ func isTruthy(v LoxValue) bool {
 	}
 }
 
+func valueToString(v LoxValue) (string, error) {
+	switch v.Type() {
+	case BOOLEAN:
+		return fmt.Sprintf("%t", AsBoolean(v)), nil
+	case NUMBER:
+		return fmt.Sprintf("%.1f", AsNumber(v)), nil
+	case NIL:
+		return "nil", nil
+	case STRING:
+		return fmt.Sprintf("%s", AsString(v)), nil
+	case OBJECT:
+		return "object", nil
+	case FUNCTION:
+		return "", NewRuntimeError("cannot convert function to string")
+	case TYPE:
+		return fmt.Sprintf("<class '%s'>", v.(LoxType).Typ.String()), nil
+	default:
+		panic("should not reach here")
+	}
+}
+
 func equals(v1 LoxValue, v2 LoxValue) bool {
+	//    // the value loxValueType nil and the loxType nil are equal
+	//    // for the other types, it makes sense to seperate the
+	//    // value from the type, so that "some string" != type("some string")
+	//    // but nil = type(nil)
+	// if v1.Type() == NIL && AsType(v2).Typ == NIL ||
+	// 	AsType(v1).Typ == NIL && v2.Type() == NIL {
+	// 	return true
+	// }
+
 	if v1.Type() != v2.Type() {
 		return false
 	}
@@ -94,6 +129,8 @@ func equals(v1 LoxValue, v2 LoxValue) bool {
 		return AsString(v1) == AsString(v2)
 	case OBJECT:
 		return true
+	case TYPE:
+		return v1.(LoxType).Typ == v2.(LoxType).Typ
 	default:
 		return false
 	}
@@ -124,6 +161,10 @@ func AsString(v LoxValue) string {
 	panic("Cannot convert non-string to string")
 }
 
+func AsType(v LoxValue) LoxType {
+	return LoxType{Typ: v.Type()}
+}
+
 func (v LoxNumber) Type() LoxValueType {
 	return NUMBER
 }
@@ -142,6 +183,10 @@ func (v LoxString) Type() LoxValueType {
 
 func (v LoxFunction) Type() LoxValueType {
 	return FUNCTION
+}
+
+func (v LoxType) Type() LoxValueType {
+	return TYPE
 }
 
 func (t LoxFunction) Call(arguments []LoxValue) (LoxValue, error) {
@@ -170,7 +215,7 @@ func (t NativeFunction) Type() LoxValueType {
 	return FUNCTION
 }
 
-func (t NativeFunction) Print() string {
+func (t NativeFunction) DebugPrint() string {
 	return ""
 }
 

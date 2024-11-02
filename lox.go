@@ -119,7 +119,7 @@ func execExpr(source string) {
 		return
 	}
 
-	println(val.Print())
+	println(val.DebugPrint())
 }
 
 func exec(source string) {
@@ -130,7 +130,7 @@ func exec(source string) {
 
 	stmts, err := parse.Parse(tokens, report)
     for _, stmt := range(stmts) {
-        println(stmt.Print())
+        println(stmt.DebugPrint())
 
     }
 	if err != nil {
