@@ -752,6 +752,7 @@ func call(s *parser) (ast.Expr, error) {
 		if !s.match(token.LEFT_PAREN) {
 			return expr, nil
 		}
+
 		s.advance()
 		arguments := []ast.Expr{}
 		if !s.check(token.RIGHT_PAREN) {
@@ -763,11 +764,12 @@ func call(s *parser) (ast.Expr, error) {
 						Message: "cannot have more than 255 arguments"}
 					return nil, err
 				}
-				e, err := expression(s)
-				if err != nil {
+
+				if e, err := expression(s); err != nil {
 					return nil, err
+				} else {
+					arguments = append(arguments, e)
 				}
-				arguments = append(arguments, e)
 
 				if !s.match(token.COMMA) {
 					break
@@ -777,8 +779,9 @@ func call(s *parser) (ast.Expr, error) {
 			}
 		}
 
-		err := s.consume(token.RIGHT_PAREN, "expected ')' after arguments")
-		if err != nil {
+		if err := s.consume(
+			token.RIGHT_PAREN,
+			"expected ')' after arguments"); err != nil {
 			return nil, err
 		}
 		paren := s.peek()
