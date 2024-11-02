@@ -156,9 +156,10 @@ func function(s *parser, kind string) (ast.Stmt, error) {
 			parameters = append(parameters, s.previous())
 
 			if !s.match(token.COMMA) {
-				s.advance()
 				break
 			}
+
+			s.advance()
 		}
 	}
 
@@ -456,7 +457,7 @@ func expression(s *parser) (ast.Expr, error) {
 //   - precedence: 16
 //   - associativity: right-to-left
 func assignment(s *parser) (ast.Expr, error) {
-	expr, err := comma(s)
+	expr, err := conditional(s)
 	if err != nil {
 		return nil, err
 	}
@@ -483,27 +484,27 @@ func assignment(s *parser) (ast.Expr, error) {
 	return expr, nil
 }
 
-// Production rules:
-//   - comma -> conditional ("," conditional)*;
-//   - precedence: 15
-//   - associativity: left-to-right
-func comma(s *parser) (ast.Expr, error) {
-	expr, err := conditional(s)
-	if err != nil {
-		return nil, err
-	}
-
-	for s.match(token.COMMA) {
-		operator := s.previous()
-		if right, err := conditional(s); err != nil {
-			return nil, err
-		} else {
-			expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
-		}
-	}
-
-	return expr, nil
-}
+// // Production rules:
+// //   - comma -> conditional ("," conditional)*;
+// //   - precedence: 15
+// //   - associativity: left-to-right
+// func comma(s *parser) (ast.Expr, error) {
+// 	expr, err := conditional(s)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	for s.match(token.COMMA) {
+// 		operator := s.previous()
+// 		if right, err := conditional(s); err != nil {
+// 			return nil, err
+// 		} else {
+// 			expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
+// 		}
+// 	}
+//
+// 	return expr, nil
+// }
 
 // Production rules:
 //   - conditional -> logical_or "?" logical_or ":" (conditional | logical_or);
@@ -748,43 +749,41 @@ func call(s *parser) (ast.Expr, error) {
 	}
 
 	for {
-		if s.match(token.LEFT_PAREN) {
-			s.advance()
-			arguments := []ast.Expr{}
-			if !s.check(token.RIGHT_PAREN) {
-				for {
-					if len(arguments) >= 255 {
-						err := ParseError{
-							Line:    s.peek().Line,
-							Lexme:   s.peek().Lexme,
-							Message: "cannot have more than 255 arguments"}
-						return nil, err
-					}
-					e, err := expression(s)
-					if err != nil {
-						return nil, err
-					}
-					arguments = append(arguments, e)
-
-					if !s.match(token.COMMA) {
-						s.advance()
-						break
-					}
-				}
-			}
-
-			err := s.consume(token.RIGHT_PAREN, "expected ')' after arguments")
-			if err != nil {
-				return nil, err
-			}
-			paren := s.peek()
-			expr = ast.CallStmt{Callee: expr, Paren: paren, Arguments: arguments}
-		} else {
-			break
+		if !s.match(token.LEFT_PAREN) {
+			return expr, nil
 		}
-	}
+		s.advance()
+		arguments := []ast.Expr{}
+		if !s.check(token.RIGHT_PAREN) {
+			for {
+				if len(arguments) >= 255 {
+					err := ParseError{
+						Line:    s.peek().Line,
+						Lexme:   s.peek().Lexme,
+						Message: "cannot have more than 255 arguments"}
+					return nil, err
+				}
+				e, err := expression(s)
+				if err != nil {
+					return nil, err
+				}
+				arguments = append(arguments, e)
 
-	return expr, nil
+				if !s.match(token.COMMA) {
+					break
+				}
+
+				s.advance()
+			}
+		}
+
+		err := s.consume(token.RIGHT_PAREN, "expected ')' after arguments")
+		if err != nil {
+			return nil, err
+		}
+		paren := s.peek()
+		expr = ast.CallStmt{Callee: expr, Paren: paren, Arguments: arguments}
+	}
 }
 
 // Production rules:
