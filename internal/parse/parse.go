@@ -98,14 +98,25 @@ func ParseExpression(tokens []token.Token, report func(error)) (ast.Expr, error)
 // program -> declaration* EOF;
 
 // Production rules:
-//   - declaration -> varDeclaration | statement;
+//   - declaration -> varDeclaration | funDeclaration | statement;
 func declaration(s *parser) (ast.Stmt, error) {
 	if s.match(token.VAR) {
 		s.advance()
 		stmt, err := varDeclaration(s)
 		if err != nil {
 			// reset the parser state between declarations
-			// to aviod cascading errors
+			// to avoid cascading errors
+			s.synchronize()
+			return nil, err
+		}
+		return stmt, nil
+	}
+	if s.match(token.FUN) {
+		s.advance()
+		stmt, err := function(s, "function")
+		if err != nil {
+			// reset the parser state between declarations
+			// to avoid cascading errors
 			s.synchronize()
 			return nil, err
 		}
@@ -113,6 +124,60 @@ func declaration(s *parser) (ast.Stmt, error) {
 	}
 
 	return statement(s)
+}
+
+// Production rules:
+//   - funDeclaration -> "fun" IDENTIFIER "(" parameters? ")" blockStmt;
+//   - parameters -> IDENTIFIER ("," IDENTIFIER)*;
+func function(s *parser, kind string) (ast.Stmt, error) {
+	if err := s.consume(token.IDENTIFIER, fmt.Sprintf("expected %s name", kind)); err != nil {
+		return nil, err
+	}
+
+	name := s.previous()
+	if err := s.consume(token.LEFT_PAREN, fmt.Sprintf("expected '(' after %s name", kind)); err != nil {
+		return nil, err
+	}
+
+	var parameters []token.Token
+	if !s.check(token.RIGHT_PAREN) {
+		for {
+			if len(parameters) >= 255 {
+				err := ParseError{
+					Line:    s.peek().Line,
+					Lexme:   s.peek().Lexme,
+					Message: "cannot have more than 255 arguments"}
+				return nil, err
+			}
+			if err := s.consume(token.IDENTIFIER, "expected parameter name"); err != nil {
+				return nil, err
+			}
+
+			parameters = append(parameters, s.previous())
+
+			if !s.match(token.COMMA) {
+				s.advance()
+				break
+			}
+		}
+	}
+
+	if err := s.consume(token.RIGHT_PAREN, "expected ')' after parameters"); err != nil {
+		return nil, err
+	}
+
+	if err := s.consume(token.LEFT_BRACE, fmt.Sprintf("expected '{' before %s body", kind)); err != nil {
+		return nil, err
+	}
+
+	block, err := blockStmt(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// will never panic because blockStmt will always return a block
+	body := block.(ast.BlockStmt).Statements
+	return ast.FunctionStmt{Name: name, Parameters: parameters, Body: body}, nil
 }
 
 // Production rules:
@@ -125,7 +190,7 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 	}
 
 	name = s.previous()
-	var initializer ast.Expr = ast.Nothing{}
+	var initializer ast.Expr = ast.NothingExpr{}
 	if s.match(token.EQUAL) {
 		s.advance()
 		initializer, err = expression(s)
@@ -138,12 +203,12 @@ func varDeclaration(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	return ast.Var{Name: name, Initializer: initializer}, nil
+	return ast.VarStmt{Name: name, Initializer: initializer}, nil
 }
 
 // Production rules:
 //   - statement -> exprStmt | printStmt | blockStmt |
-//     ifStmt | whileStmt | forStmt | breakStmt;
+//     ifStmt | whileStmt | forStmt | breakStmt | returnStmt;
 func statement(s *parser) (ast.Stmt, error) {
 	if s.match(token.IF) {
 		s.advance()
@@ -165,7 +230,21 @@ func statement(s *parser) (ast.Stmt, error) {
 		if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
 			return nil, err
 		}
-		return ast.Break{}, nil
+		return ast.BreakStmt{}, nil
+	}
+
+	if s.match(token.RETURN) {
+		s.advance()
+		expr, err := expression(s)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
+			return nil, err
+		}
+
+		return ast.ReturnStmt{Expr: expr}, nil
 	}
 
 	if s.match(token.PRINT) {
@@ -195,7 +274,7 @@ func printStmt(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	return ast.Print{Expr: expr}, nil
+	return ast.PrintStmt{Expr: expr}, nil
 }
 
 // Production rules:
@@ -216,7 +295,7 @@ func blockStmt(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	return ast.Block{Statements: statements}, nil
+	return ast.BlockStmt{Statements: statements}, nil
 }
 
 // Production rules:
@@ -242,7 +321,7 @@ func ifStmt(s *parser) (ast.Stmt, error) {
 		}
 	}
 
-	return ast.If{Condition: condition,
+	return ast.IfStmt{Condition: condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch}, nil
 }
@@ -262,7 +341,7 @@ func whileStmt(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	return ast.While{Condition: condition, Body: body}, nil
+	return ast.WhileStmt{Condition: condition, Body: body}, nil
 }
 
 // Production rules:
@@ -316,22 +395,22 @@ func forStmt(s *parser) (ast.Stmt, error) {
 	}
 
 	if incrementer != nil {
-		body = ast.Block{
+		body = ast.BlockStmt{
 			Statements: []ast.Stmt{
 				body,
-				ast.Expression{Expr: incrementer}},
+				ast.ExpressionStmt{Expr: incrementer}},
 		}
 	}
 
 	if condition == nil {
-		var value ast.Boolean = true
-		condition = ast.Literal{Value: value}
+		var value ast.LoxBoolean = true
+		condition = ast.LiteralExpr{Value: value}
 	}
 
-	body = ast.While{Condition: condition, Body: body}
+	body = ast.WhileStmt{Condition: condition, Body: body}
 
 	if initializer != nil {
-		body = ast.Block{
+		body = ast.BlockStmt{
 			Statements: []ast.Stmt{initializer, body},
 		}
 	}
@@ -353,13 +432,13 @@ func expressionStmt(s *parser) (ast.Stmt, error) {
 		return nil, err
 	}
 
-	return ast.Expression{Expr: expr}, nil
+	return ast.ExpressionStmt{Expr: expr}, nil
 }
 
 // Production rules:
 //   - expression -> assignment;
 //   - precedence: none
-//   - ssociativity: none
+//   - associativity: none
 func expression(s *parser) (ast.Expr, error) {
 	return assignment(s)
 }
@@ -381,8 +460,8 @@ func assignment(s *parser) (ast.Expr, error) {
 			return nil, err
 		}
 
-		if expr, ok := expr.(ast.Variable); ok {
-			return ast.Assign{Name: expr.Name, Value: value}, nil
+		if expr, ok := expr.(ast.VariableExpr); ok {
+			return ast.AssignExpr{Name: expr.Name, Value: value}, nil
 		}
 
 		err = ParseError{
@@ -411,7 +490,7 @@ func comma(s *parser) (ast.Expr, error) {
 		if right, err := conditional(s); err != nil {
 			return nil, err
 		} else {
-			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+			expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 		}
 	}
 
@@ -453,7 +532,7 @@ func conditional(s *parser) (ast.Expr, error) {
 		return nil, err
 	}
 
-	expr = ast.Ternary{Condition: expr, Left: left, Right: right}
+	expr = ast.TernaryExpr{Condition: expr, Left: left, Right: right}
 	return expr, nil
 }
 
@@ -475,7 +554,7 @@ func logicalOr(s *parser) (ast.Expr, error) {
 			right = handleMissingExpression(s, s.previous().Lexme,
 				"missing right-hand-side operand (logical_or)")
 		}
-		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
@@ -499,7 +578,7 @@ func logicalAnd(s *parser) (ast.Expr, error) {
 			right = handleMissingExpression(s, s.previous().Lexme,
 				"missing right-hand-side operand (logical_and)")
 		}
-		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
@@ -527,7 +606,7 @@ func equality(s *parser) (ast.Expr, error) {
 			expr = handleMissingExpression(s, s.peek().Lexme,
 				"missing left-hand-side operand (equality)")
 		} else {
-			expr = ast.Binary{Left: expr, Op: operator, Right: right}
+			expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 		}
 	}
 
@@ -558,7 +637,7 @@ func comparison(s *parser) (ast.Expr, error) {
 				"missing right-hand-side operand (comparison)")
 		}
 
-		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
@@ -567,7 +646,7 @@ func comparison(s *parser) (ast.Expr, error) {
 func handleMissingExpression(s *parser, lexme string, msg string) ast.Expr {
 	s.parseErrOccured = true
 	s.report(ParseError{Line: s.peek().Line, Lexme: lexme, Message: msg})
-	return ast.Nothing{}
+	return ast.NothingExpr{}
 }
 
 // Production rules:
@@ -594,7 +673,7 @@ func term(s *parser) (ast.Expr, error) {
 				"missing right-hand-side operand (term)")
 		}
 
-		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
@@ -624,14 +703,14 @@ func factor(s *parser) (ast.Expr, error) {
 				"missing right-hand-side operand (factor)")
 		}
 
-		expr = ast.Binary{Left: expr, Op: operator, Right: right}
+		expr = ast.BinaryExpr{Left: expr, Op: operator, Right: right}
 	}
 
 	return expr, nil
 }
 
 // Production rules:
-//   - unary -> ("!" | "-") (unary | nothing) | primary;
+//   - unary -> ("!" | "-") (unary | nothing) | call;
 //   - precedence: 2
 //   - associativity: right-to-left
 func unary(s *parser) (ast.Expr, error) {
@@ -644,27 +723,77 @@ func unary(s *parser) (ast.Expr, error) {
 				"missing operand (unary)")
 		}
 
-		return ast.Unary{Op: operator, Right: right}, nil
+		return ast.UnaryExpr{Op: operator, Right: right}, nil
 	}
 
-	return primary(s)
+	return call(s)
 }
 
 // Production rules:
-//   - primary -> NUMBER | STRING | nothing | "true" | "false" | "nil" | "(" expression ")";
+//   - call -> primary ("(" arguments? ")")*;
+//   - precedence: 1
+//   - associativity: left-to-right
+func call(s *parser) (ast.Expr, error) {
+	expr, err := primary(s)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		if s.match(token.LEFT_PAREN) {
+			s.advance()
+			arguments := []ast.Expr{}
+			if !s.check(token.RIGHT_PAREN) {
+				for {
+					if len(arguments) >= 255 {
+						err := ParseError{
+							Line:    s.peek().Line,
+							Lexme:   s.peek().Lexme,
+							Message: "cannot have more than 255 arguments"}
+						return nil, err
+					}
+					e, err := expression(s)
+					if err != nil {
+						return nil, err
+					}
+					arguments = append(arguments, e)
+
+					if !s.match(token.COMMA) {
+						s.advance()
+						break
+					}
+				}
+			}
+
+			err := s.consume(token.RIGHT_PAREN, "expected ')' after arguments")
+			if err != nil {
+				return nil, err
+			}
+			paren := s.peek()
+			expr = ast.CallStmt{Callee: expr, Paren: paren, Arguments: arguments}
+		} else {
+			break
+		}
+	}
+
+	return expr, nil
+}
+
+// Production rules:
+//   - primary -> NUMBER | STRING | IDENTIFIER | nothing | "true" | "false" | "nil" | "(" expression ")";
 //   - precedence: 1
 //   - associativity: none
 func primary(s *parser) (ast.Expr, error) {
 	switch s.peek().Type {
 	case token.FALSE:
 		s.advance()
-		return ast.Literal{Value: ast.Boolean(false)}, nil
+		return ast.LiteralExpr{Value: ast.LoxBoolean(false)}, nil
 	case token.TRUE:
 		s.advance()
-		return ast.Literal{Value: ast.Boolean(true)}, nil
+		return ast.LiteralExpr{Value: ast.LoxBoolean(true)}, nil
 	case token.NIL:
 		s.advance()
-		return ast.Literal{Value: ast.Nil{}}, nil
+		return ast.LiteralExpr{Value: ast.LoxNil{}}, nil
 	case token.NUMBER:
 		s.advance()
 
@@ -676,25 +805,25 @@ func primary(s *parser) (ast.Expr, error) {
 			panic(err)
 		}
 
-		return ast.Literal{Value: ast.Number(num)}, nil
+		return ast.LiteralExpr{Value: ast.LoxNumber(num)}, nil
 	case token.STRING:
 		s.advance()
 		value := s.previous().Literal
-		return ast.Literal{Value: ast.String(value)}, nil
+		return ast.LiteralExpr{Value: ast.LoxString(value)}, nil
 	case token.LEFT_PAREN:
 		s.advance()
 		if expr, err := expression(s); err != nil {
 			return nil, err
 		} else {
 			s.consume(token.RIGHT_PAREN, "expected ')' after expression (primary)")
-			return ast.Grouping{Expr: expr}, nil
+			return ast.GroupingExpr{Expr: expr}, nil
 		}
 	case token.IDENTIFIER:
 		s.advance()
-		return ast.Variable{Name: s.previous()}, nil
+		return ast.VariableExpr{Name: s.previous()}, nil
 	case token.ERROR:
 		s.parseErrOccured = true
-		return ast.Nothing{}, nil
+		return ast.NothingExpr{}, nil
 	default:
 		err := ParseError{
 			Line:    s.peek().Line,

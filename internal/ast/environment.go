@@ -7,24 +7,24 @@ import (
 
 type Environment struct {
 	enclosing   *Environment
-	enviornment map[string]Value
+	enviornment map[string]LoxValue
 }
 
 func NewEnvironment(enclosing *Environment) *Environment {
 	return &Environment{
-		enviornment: make(map[string]Value),
+		enviornment: make(map[string]LoxValue),
 		enclosing:   enclosing,
 	}
 }
 
-func (e *Environment) Define(name token.Token, value Value) {
-	e.enviornment[name.Lexme] = value
+func (e *Environment) Define(name string, value LoxValue) {
+	e.enviornment[name] = value
 }
 
-func (e *Environment) Assign(name token.Token, value Value) error {
-	_, ok := e.enviornment[name.Lexme]
+func (e *Environment) Assign(name string, value LoxValue) error {
+	_, ok := e.enviornment[name]
 	if ok {
-		e.enviornment[name.Lexme] = value
+		e.enviornment[name] = value
 		return nil
 	}
 
@@ -35,7 +35,7 @@ func (e *Environment) Assign(name token.Token, value Value) error {
 	return errors.New("")
 }
 
-func (e *Environment) Get(name token.Token) (Value, error) {
+func (e *Environment) Get(name token.Token) (LoxValue, error) {
 	// try to get variable for this scope
 	if value, ok := e.enviornment[name.Lexme]; ok {
 		return value, nil

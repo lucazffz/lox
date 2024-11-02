@@ -9,40 +9,41 @@ type Expr interface {
 	EvaluateExpr
 }
 
-type Binary struct {
+
+type BinaryExpr struct {
 	Left  Expr
 	Op    token.Token
 	Right Expr
 }
 
-type Grouping struct {
+type GroupingExpr struct {
 	Expr Expr
 }
 
-type Literal struct {
-	Value Value
+type LiteralExpr struct {
+	Value LoxValue
 }
 
-type Variable struct {
+type VariableExpr struct {
     Name token.Token
 }
 
-type Unary struct {
+type UnaryExpr struct {
 	Op    token.Token
 	Right Expr
 }
 
-type Ternary struct {
+type TernaryExpr struct {
 	Condition Expr
 	Left      Expr
 	Right     Expr
 }
 
-type Assign struct {
+type AssignExpr struct {
     Name  token.Token
     Value Expr
 }
 
-type Nothing struct {
-}
+
+type NothingExpr struct {}
 

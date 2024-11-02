@@ -9,34 +9,50 @@ type Stmt interface {
     PrettyPrint
 }
 
-type Expression struct {
+type ExpressionStmt struct {
     Expr Expr;
 }
 
-type Print struct {
+type PrintStmt struct {
     Expr Expr;
 }
 
-type Var struct {
+type VarStmt struct {
     Name token.Token;
     Initializer Expr;
 }
 
-type Block struct {
+type BlockStmt struct {
     Statements[] Stmt
 }
 
-type If struct {
+type IfStmt struct {
     Condition Expr;
     ThenBranch Stmt;
     ElseBranch Stmt;
 }
 
-type While struct {
+type WhileStmt struct {
     Condition Expr;
     Body Stmt;
 }
 
-type Break struct {
+type BreakStmt struct {
 
+}
+
+type ReturnStmt struct {
+    Expr Expr;
+}
+
+type CallStmt struct {
+	Callee    Expr
+	Paren     token.Token
+	Arguments []Expr
+}
+
+type FunctionStmt struct {
+	Name       token.Token
+	Parameters []token.Token
+	Body       []Stmt
 }

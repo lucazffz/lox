@@ -1,58 +1,76 @@
 package ast
 
-type ValueType uint8
 
-type Object struct{}
+import (
+	"fmt"
+)
 
-type Boolean bool
+type LoxValue interface {
+	PrettyPrint
+	Type() LoxValueType
+}
 
-type Number float64
+type Callable interface {
+	LoxValue
+	Call(arguments []LoxValue) (LoxValue, error)
+	Arity() int
+}
 
-type String string
+type LoxValueType uint8
 
-type Nil struct{}
+type LoxObject struct{}
+
+type LoxBoolean bool
+
+type LoxNumber float64
+
+type LoxString string
+
+type LoxNil struct{}
+
+type LoxFunction struct {
+	FunctionStmt
+	Closure *Environment
+}
+
+type NativeFunction struct {
+	paramLen int
+	Function func([]LoxValue) (LoxValue, error)
+}
 
 const (
-	BOOLEAN ValueType = iota
+	BOOLEAN LoxValueType = iota
 	NUMBER
 	NIL
 	STRING
 	OBJECT
+	FUNCTION
 )
 
-type Value interface {
-	PrettyPrint
-	Type() ValueType
-	AsBoolean() bool
-	AsNumber() float64
-	AsObject() Object
-	AsString() string
-}
-
-func isBoolValue(v Value) bool {
+func isBool(v LoxValue) bool {
 	return v.Type() == BOOLEAN
 }
 
-func isNumberValue(v Value) bool {
+func isNumber(v LoxValue) bool {
 	return v.Type() == NUMBER
 }
 
-func isNilValue(v Value) bool {
+func isNil(v LoxValue) bool {
 	return v.Type() == NIL
 }
 
-func isObjectValue(v Value) bool {
+func isObject(v LoxValue) bool {
 	return v.Type() == OBJECT
 }
 
-func isStringValue(v Value) bool {
+func isString(v LoxValue) bool {
 	return v.Type() == STRING
 }
 
-func isTruthy(v Value) bool {
+func isTruthy(v LoxValue) bool {
 	switch v.Type() {
 	case BOOLEAN:
-		return v.AsBoolean()
+		return AsBoolean(v)
 	case NIL:
 		return false
 	default:
@@ -60,20 +78,20 @@ func isTruthy(v Value) bool {
 	}
 }
 
-func equals(v1 Value, v2 Value) bool {
+func equals(v1 LoxValue, v2 LoxValue) bool {
 	if v1.Type() != v2.Type() {
 		return false
 	}
 
 	switch v1.Type() {
 	case BOOLEAN:
-		return v1.AsBoolean() == v2.AsBoolean()
+		return AsBoolean(v1) == AsBoolean(v2)
 	case NUMBER:
-		return v1.AsNumber() == v2.AsNumber()
+		return AsNumber(v1) == AsNumber(v2)
 	case NIL:
 		return true
 	case STRING:
-		return v1.AsString() == v2.AsString()
+		return AsString(v1) == AsString(v2)
 	case OBJECT:
 		return true
 	default:
@@ -81,107 +99,96 @@ func equals(v1 Value, v2 Value) bool {
 	}
 }
 
-// BOOLEAN
-func (v Boolean) Type() ValueType {
+func (v LoxBoolean) Type() LoxValueType {
 	return BOOLEAN
 }
 
-func (v Boolean) AsBoolean() bool {
-	return bool(v)
+func AsBoolean(v LoxValue) bool {
+	if v, ok := v.(LoxBoolean); ok {
+		return bool(v)
+	}
+	panic("Cannot convert non-boolean to boolean")
 }
 
-func (v Boolean) AsNumber() float64 {
-	panic("Cannot convert boolean to number")
+func AsNumber(v LoxValue) float64 {
+	if v, ok := v.(LoxNumber); ok {
+		return float64(v)
+	}
+	panic("Cannot convert non-number to number")
 }
 
-func (v Boolean) AsObject() Object {
-	panic("Cannot convert boolean to object")
+func AsString(v LoxValue) string {
+	if v, ok := v.(LoxString); ok {
+		return string(v)
+	}
+	panic("Cannot convert non-string to string")
 }
 
-func (v Boolean) AsString() string {
-	panic("Cannot convert boolean to string")
-}
-
-// NUMBER
-func (v Number) Type() ValueType {
+func (v LoxNumber) Type() LoxValueType {
 	return NUMBER
 }
 
-func (v Number) AsBoolean() bool {
-	panic("Cannot convert number to boolean")
-}
-
-func (v Number) AsNumber() float64 {
-	return float64(v)
-}
-
-func (v Number) AsObject() Object {
-	panic("Cannot convert number to object")
-}
-
-func (v Number) AsString() string {
-	panic("Cannot convert number to string")
-}
-
-// NIL
-func (v Nil) Type() ValueType {
+func (v LoxNil) Type() LoxValueType {
 	return NIL
 }
 
-func (v Nil) AsBoolean() bool {
-	panic("Cannot convert nil to boolean")
-}
-
-func (v Nil) AsNumber() float64 {
-	panic("Cannot convert nil to number")
-}
-
-func (v Nil) AsObject() Object {
-	panic("Cannot convert nil to object")
-}
-
-func (v Nil) AsString() string {
-	panic("Cannot convert nil to string")
-}
-
-// OBJECT
-func (v Object) Type() ValueType {
+func (v LoxObject) Type() LoxValueType {
 	return OBJECT
 }
 
-func (v Object) AsBoolean() bool {
-	panic("Cannot convert object to boolean")
-}
-
-func (v Object) AsNumber() float64 {
-	panic("Cannot convert object to number")
-}
-
-func (v Object) AsObject() Object {
-	return v
-}
-
-func (v Object) AsString() string {
-	panic("Cannot convert object to string")
-}
-
-// STRING
-func (v String) Type() ValueType {
+func (v LoxString) Type() LoxValueType {
 	return STRING
 }
 
-func (v String) AsBoolean() bool {
-	panic("Cannot convert string to boolean")
+func (v LoxFunction) Type() LoxValueType {
+	return FUNCTION
 }
 
-func (v String) AsNumber() float64 {
-	panic("Cannot convert string to number")
+func (t LoxFunction) Call(arguments []LoxValue) (LoxValue, error) {
+	env := NewEnvironment(t.Closure)
+	for i, param := range t.Parameters {
+		env.Define(param.Lexme, arguments[i])
+	}
+
+	for _, stmt := range t.Body {
+		if err := stmt.Evaluate(); err != nil {
+			if err, ok := err.(ReturnError); ok {
+				return err.Value, nil
+			}
+			return nil, err
+		}
+	}
+
+	return LoxNil{}, nil
 }
 
-func (v String) AsObject() Object {
-	panic("Cannot convert string to object")
+func (t LoxFunction) Arity() int {
+	return len(t.Parameters)
 }
 
-func (v String) AsString() string {
-	return string(v)
+func (t NativeFunction) Type() LoxValueType {
+	return FUNCTION
+}
+
+func (t NativeFunction) Print() string {
+	return ""
+}
+
+func (t NativeFunction) Call(arguments []LoxValue) (LoxValue, error) {
+	if len(arguments) != t.Arity() {
+		return nil, NewRuntimeError(fmt.Sprintf("expected %d arguments but got %d", t.Arity(), len(arguments)))
+	}
+
+	val, err := t.Function(arguments)
+
+	// native functions should not return nil as value but may accidentally
+	if val == nil && err == nil {
+		return LoxNil{}, nil
+	}
+
+	return val, err
+}
+
+func (t NativeFunction) Arity() int {
+	return t.paramLen
 }

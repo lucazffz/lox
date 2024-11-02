@@ -1,9 +1,12 @@
 package ast
 
-import "github.com/LucazFFz/lox/internal/token"
+import (
+	"fmt"
+	"github.com/LucazFFz/lox/internal/token"
+)
 
 type EvaluateExpr interface {
-	Evaluate() (Value, error)
+	Evaluate() (LoxValue, error)
 }
 
 type EvaluateStmt interface {
@@ -14,10 +17,13 @@ type EvaluateStmt interface {
 // (a type of runtime error) which we can catch when
 // evaluating a while loop and break out of the loop
 // unsure if this is the best way to handle this
-type BreakError struct{}
+type BreakError struct {
+	RuntimeError
+}
 
-func (b BreakError) Error() string {
-	return "runtime error - unexpected break statement outside of loop\n"
+type ReturnError struct {
+	RuntimeError
+	Value LoxValue
 }
 
 type RuntimeError struct {
@@ -33,12 +39,12 @@ func (r RuntimeError) Error() string {
 }
 
 // statements
-func (s Expression) Evaluate() error {
+func (s ExpressionStmt) Evaluate() error {
 	_, err := s.Expr.Evaluate()
 	return err
 }
 
-func (s Print) Evaluate() error {
+func (s PrintStmt) Evaluate() error {
 	expr, err := s.Expr.Evaluate()
 	if err != nil {
 		return err
@@ -48,25 +54,25 @@ func (s Print) Evaluate() error {
 	return nil
 }
 
-func (s Block) Evaluate() error {
-	previous := environment
-	environment = NewEnvironment(environment)
+func (s BlockStmt) Evaluate() error {
+	previous := global_env
+	global_env = NewEnvironment(global_env)
 
 	for _, statement := range s.Statements {
 		err := statement.Evaluate()
 		if err != nil {
-			environment = previous
+			global_env = previous
 			return err
 		}
 	}
 
-	environment = previous
+	global_env = previous
 	return nil
 }
 
-func (s Var) Evaluate() error {
-	if (s.Initializer == Nothing{}) {
-		environment.Define(s.Name, Nil{})
+func (s VarStmt) Evaluate() error {
+	if (s.Initializer == NothingExpr{}) {
+		global_env.Define(s.Name.Lexme, LoxNil{})
 	}
 
 	value, err := s.Initializer.Evaluate()
@@ -74,11 +80,11 @@ func (s Var) Evaluate() error {
 		return err
 	}
 
-	environment.Define(s.Name, value)
+	global_env.Define(s.Name.Lexme, value)
 	return nil
 }
 
-func (s If) Evaluate() error {
+func (s IfStmt) Evaluate() error {
 	value, err := s.Condition.Evaluate()
 	if err != nil {
 		return err
@@ -99,7 +105,7 @@ func (s If) Evaluate() error {
 	return nil
 }
 
-func (s While) Evaluate() error {
+func (s WhileStmt) Evaluate() error {
 	value, err := s.Condition.Evaluate()
 	if err != nil {
 		return err
@@ -126,56 +132,109 @@ func (s While) Evaluate() error {
 	return nil
 }
 
-func (s Break) Evaluate() error {
-	return BreakError{}
+func (s BreakStmt) Evaluate() error {
+	return BreakError{NewRuntimeError("unexpected break statement")}
+}
+
+func (s ReturnStmt) Evaluate() error {
+	value, err := s.Expr.Evaluate()
+	if err != nil {
+		return err
+	}
+
+	return ReturnError{
+		RuntimeError: NewRuntimeError("unexpected return statement"),
+		Value:        value,
+	}
+}
+
+func (t CallStmt) Evaluate() (LoxValue, error) {
+	callee, err := t.Callee.Evaluate()
+	if err != nil {
+		return nil, err
+	}
+
+	arguments := []LoxValue{}
+	for _, arg := range t.Arguments {
+		arg, err := arg.Evaluate()
+		if err != nil {
+			return nil, err
+		}
+
+		arguments = append(arguments, arg)
+	}
+
+	if function, ok := callee.(Callable); ok {
+		if len(arguments) != function.Arity() {
+			return nil, NewRuntimeError(
+				fmt.Sprintf("expected {%d} arguments but got {%d} arguments",
+					len(arguments),
+					function.Arity()))
+		}
+
+		value, err := function.Call(arguments)
+		if err != nil {
+			return nil, err
+		}
+
+		return value, nil
+	}
+
+	return nil, NewRuntimeError("can only invoke functions and methods")
+}
+
+func (t FunctionStmt) Evaluate() error {
+	function := LoxFunction{FunctionStmt: t, Closure: global_env}
+	global_env.Define(t.Name.Lexme, function)
+	return nil
 }
 
 // expressions
-func (t Literal) Evaluate() (Value, error) {
+func (t LiteralExpr) Evaluate() (LoxValue, error) {
 	return t.Value, nil
 }
 
-func (t Grouping) Evaluate() (Value, error) {
+func (t GroupingExpr) Evaluate() (LoxValue, error) {
 	return t.Expr.Evaluate()
 }
 
-func (t Unary) Evaluate() (Value, error) {
+func (t UnaryExpr) Evaluate() (LoxValue, error) {
 	right, err := t.Right.Evaluate()
 	if err != nil {
 		return nil, err
 	}
 	switch t.Op.Type {
 	case token.BANG:
-		return Boolean(!isTruthy(right)), nil
+		return LoxBoolean(!isTruthy(right)), nil
 	case token.MINUS:
-		if !isNumberValue(right) {
+		if !isNumber(right) {
 			return nil, NewRuntimeError("operand must be a number")
 		}
-		return Number(-right.AsNumber()), nil
+		return LoxNumber(-AsNumber(right)), nil
 
 	}
 
 	panic("should never reach here")
 }
 
-func (t Binary) Evaluate() (Value, error) {
-	checkNumberOperands := func(left, right Value) error {
-		if !isNumberValue(left) || !isNumberValue(right) {
+func (t BinaryExpr) Evaluate() (LoxValue, error) {
+	checkNumberOperands := func(left, right LoxValue) error {
+		if !isNumber(left) || !isNumber(right) {
 			return NewRuntimeError("both operands must be numbers")
 		}
 
 		return nil
 	}
 
-	checkStringOperands := func(left, right Value) error {
-		if !isStringValue(left) || !isStringValue(right) {
+	checkStringOperands := func(left, right LoxValue) error {
+		if !isString(left) || !isString(right) {
 			return NewRuntimeError("both operands must be strings")
 		}
 
 		return nil
 	}
 
-	evaluateOperands := func() (Value, Value, error) {
+	evaluateOperands := func() (LoxValue, LoxValue, error) {
 		left, err := t.Left.Evaluate()
 		if err != nil {
 			return nil, nil, err
@@ -215,11 +274,11 @@ func (t Binary) Evaluate() (Value, error) {
 			return nil, err
 		}
 		if err := checkNumberOperands(left, right); err == nil {
-			return Number(left.AsNumber() + right.AsNumber()), nil
+			return LoxNumber(AsNumber(left) + AsNumber(right)), nil
 		}
 
 		if err := checkStringOperands(left, right); err == nil {
-			return String(left.AsString() + right.AsString()), nil
+			return LoxString(AsString(left) + AsString(right)), nil
 		}
 
 		return nil, NewRuntimeError("operands must be of same type")
@@ -231,7 +290,7 @@ func (t Binary) Evaluate() (Value, error) {
 		if err := checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
-		return Number(left.AsNumber() - right.AsNumber()), nil
+		return LoxNumber(AsNumber(left) - AsNumber(right)), nil
 	case token.STAR:
 		left, right, err := evaluateOperands()
 		if err != nil {
@@ -240,7 +299,7 @@ func (t Binary) Evaluate() (Value, error) {
 		if err := checkNumberOperands(left, right); err != nil {
 			return nil, err
 		}
-		return Number(left.AsNumber() * right.AsNumber()), nil
+		return LoxNumber(AsNumber(left) * AsNumber(right)), nil
 	case token.SLASH:
 		left, right, err := evaluateOperands()
 		if err != nil {
@@ -250,22 +309,22 @@ func (t Binary) Evaluate() (Value, error) {
 			return nil, err
 		}
 
-		if right.AsNumber() == 0 {
+		if AsNumber(right) == 0 {
 			return nil, NewRuntimeError("division by zero")
 		}
 
-		return Number(left.AsNumber() / right.AsNumber()), nil
+		return LoxNumber(AsNumber(left) / AsNumber(right)), nil
 	case token.GREATER:
 		left, right, err := evaluateOperands()
 		if err != nil {
 			return nil, err
 		}
 		if err := checkNumberOperands(left, right); err == nil {
-			return Boolean(left.AsNumber() > right.AsNumber()), nil
+			return LoxBoolean(AsNumber(left) > AsNumber(right)), nil
 		}
 
 		if err := checkStringOperands(left, right); err == nil {
-			return Boolean(left.AsString() > right.AsString()), nil
+			return LoxBoolean(AsString(left) > AsString(right)), nil
 		}
 
 		return nil, NewRuntimeError("operands must be of same type")
@@ -275,11 +334,11 @@ func (t Binary) Evaluate() (Value, error) {
 			return nil, err
 		}
 		if err := checkNumberOperands(left, right); err == nil {
-			return Boolean(left.AsNumber() >= right.AsNumber()), nil
+			return LoxBoolean(AsNumber(left) >= AsNumber(right)), nil
 		}
 
 		if err := checkStringOperands(left, right); err == nil {
-			return Boolean(left.AsString() >= right.AsString()), nil
+			return LoxBoolean(AsString(left) >= AsString(right)), nil
 		}
 
 		return nil, NewRuntimeError("operands must be of same type")
@@ -289,11 +348,11 @@ func (t Binary) Evaluate() (Value, error) {
 			return nil, err
 		}
 		if err := checkNumberOperands(left, right); err == nil {
-			return Boolean(left.AsNumber() < right.AsNumber()), nil
+			return LoxBoolean(AsNumber(left) < AsNumber(right)), nil
 		}
 
 		if err := checkStringOperands(left, right); err == nil {
-			return Boolean(left.AsString() < right.AsString()), nil
+			return LoxBoolean(AsString(left) < AsString(right)), nil
 		}
 
 		return nil, NewRuntimeError("operands must be of same type")
@@ -303,11 +362,11 @@ func (t Binary) Evaluate() (Value, error) {
 			return nil, err
 		}
 		if err := checkNumberOperands(left, right); err == nil {
-			return Boolean(left.AsNumber() <= right.AsNumber()), nil
+			return LoxBoolean(AsNumber(left) <= AsNumber(right)), nil
 		}
 
 		if err := checkStringOperands(left, right); err == nil {
-			return Boolean(left.AsString() <= right.AsString()), nil
+			return LoxBoolean(AsString(left) <= AsString(right)), nil
 		}
 
 		return nil, NewRuntimeError("operands must be of same type")
@@ -316,19 +375,19 @@ func (t Binary) Evaluate() (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Boolean(equals(left, right)), nil
+		return LoxBoolean(equals(left, right)), nil
 	case token.BANG_EQUAL:
 		left, right, err := evaluateOperands()
 		if err != nil {
 			return nil, err
 		}
-		return Boolean(!equals(left, right)), nil
+		return LoxBoolean(!equals(left, right)), nil
 	}
 
 	panic("should never reach here (binary)")
 }
 
-func (t Ternary) Evaluate() (Value, error) {
+func (t TernaryExpr) Evaluate() (LoxValue, error) {
 	condition, err := t.Condition.Evaluate()
 	if err != nil {
 		return nil, err
@@ -341,8 +400,8 @@ func (t Ternary) Evaluate() (Value, error) {
 	return t.Right.Evaluate()
 }
 
-func (t Variable) Evaluate() (Value, error) {
-	value, err := environment.Get(t.Name)
+func (t VariableExpr) Evaluate() (LoxValue, error) {
+	value, err := global_env.Get(t.Name)
 	if err != nil {
 		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
 	}
@@ -350,19 +409,19 @@ func (t Variable) Evaluate() (Value, error) {
 	return value, nil
 }
 
-func (t Assign) Evaluate() (Value, error) {
+func (t AssignExpr) Evaluate() (LoxValue, error) {
 	value, err := t.Value.Evaluate()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := environment.Assign(t.Name, value); err != nil {
+	if err := global_env.Assign(t.Name.Lexme, value); err != nil {
 		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
 	}
 
 	return value, nil
 }
 
-func (t Nothing) Evaluate() (Value, error) {
-	return Nil{}, nil
+func (t NothingExpr) Evaluate() (LoxValue, error) {
+	return LoxNil{}, nil
 }
