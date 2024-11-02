@@ -191,17 +191,16 @@ func (v LoxType) Type() LoxValueType {
 
 func (t LoxFunction) Call(arguments []LoxValue) (LoxValue, error) {
 	env := NewEnvironment(t.Closure)
+
 	for i, param := range t.Parameters {
 		env.Define(param.Lexme, arguments[i])
 	}
 
-	for _, stmt := range t.Body {
-		if err := stmt.Evaluate(); err != nil {
-			if ret, ok := err.(ReturnError); ok {
-				return ret.Value, nil
-			}
-			return nil, err
+	if err := executeBlock(t.Body, env); err != nil {
+		if err, ok := err.(ReturnError); ok {
+			return err.Value, nil
 		}
+		return nil, err
 	}
 
 	return LoxNil{}, nil
@@ -224,14 +223,7 @@ func (t NativeFunction) Call(arguments []LoxValue) (LoxValue, error) {
 		return nil, NewRuntimeError(fmt.Sprintf("expected %d arguments but got %d", t.Arity(), len(arguments)))
 	}
 
-	val, err := t.Function(arguments)
-
-	// native functions should not return nil as value but may accidentally
-	if val == nil && err == nil {
-		return LoxNil{}, nil
-	}
-
-	return val, err
+	return t.Function(arguments)
 }
 
 func (t NativeFunction) Arity() int {

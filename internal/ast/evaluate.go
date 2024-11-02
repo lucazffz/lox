@@ -60,24 +60,12 @@ func (s PrintStmt) Evaluate() error {
 }
 
 func (s BlockStmt) Evaluate() error {
-	previous := global_env
-	global_env = NewEnvironment(global_env)
-
-	for _, statement := range s.Statements {
-		err := statement.Evaluate()
-		if err != nil {
-			global_env = previous
-			return err
-		}
-	}
-
-	global_env = previous
-	return nil
+	return executeBlock(s.Statements, NewEnvironment(current_env))
 }
 
 func (s VarStmt) Evaluate() error {
 	if (s.Initializer == NothingExpr{}) {
-		global_env.Define(s.Name.Lexme, LoxNil{})
+		current_env.Define(s.Name.Lexme, LoxNil{})
 	}
 
 	value, err := s.Initializer.Evaluate()
@@ -85,7 +73,7 @@ func (s VarStmt) Evaluate() error {
 		return err
 	}
 
-	global_env.Define(s.Name.Lexme, value)
+	current_env.Define(s.Name.Lexme, value)
 	return nil
 }
 
@@ -194,8 +182,8 @@ func (t CallStmt) Evaluate() (LoxValue, error) {
 }
 
 func (t FunctionStmt) Evaluate() error {
-	function := LoxFunction{FunctionStmt: t, Closure: global_env}
-	global_env.Define(t.Name.Lexme, function)
+	function := LoxFunction{FunctionStmt: t, Closure: current_env}
+	current_env.Define(t.Name.Lexme, function)
 	return nil
 }
 
@@ -411,7 +399,7 @@ func (t TernaryExpr) Evaluate() (LoxValue, error) {
 }
 
 func (t VariableExpr) Evaluate() (LoxValue, error) {
-	value, err := global_env.Get(t.Name)
+	value, err := current_env.Get(t.Name)
 	if err != nil {
 		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
 	}
@@ -425,7 +413,7 @@ func (t AssignExpr) Evaluate() (LoxValue, error) {
 		return nil, err
 	}
 
-	if err := global_env.Assign(t.Name.Lexme, value); err != nil {
+	if err := current_env.Assign(t.Name.Lexme, value); err != nil {
 		return nil, NewRuntimeError("undefined variable '" + t.Name.Lexme + "'")
 	}
 

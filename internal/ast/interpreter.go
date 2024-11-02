@@ -5,7 +5,14 @@ import (
 	"time"
 )
 
+// the global environment
 var global_env = NewEnvironment(nil)
+
+// the current environment (used for block scopes) we 
+// operate in, starts as the global environment but may be
+// reassigned by block scopes
+var current_env = global_env
+
 
 var clockFunc = NativeFunction{
 	paramLen: 0,
@@ -23,6 +30,20 @@ var typeFunc = NativeFunction{
 
 func addNativeFunction(name string, f NativeFunction) {
 	global_env.Define(name, f)
+}
+
+func executeBlock(statements []Stmt, env *Environment) error {
+    previous := current_env
+    current_env = env
+    defer func() { current_env = previous }()
+
+    for _, stmt := range statements {
+        if err := stmt.Evaluate(); err != nil {
+            return err
+        }
+    }
+
+    return nil
 }
 
 func Interpret(statements []Stmt, report func(error)) error {
