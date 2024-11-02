@@ -142,7 +142,12 @@ func (s BreakStmt) Evaluate() error {
 }
 
 func (s ReturnStmt) Evaluate() error {
-	value, err := s.Expr.Evaluate()
+	var value LoxValue = LoxNil{}
+	var err error
+	if s.Expr != nil {
+		value, err = s.Expr.Evaluate()
+	}
+
 	if err != nil {
 		return err
 	}

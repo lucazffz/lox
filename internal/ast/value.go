@@ -197,8 +197,8 @@ func (t LoxFunction) Call(arguments []LoxValue) (LoxValue, error) {
 
 	for _, stmt := range t.Body {
 		if err := stmt.Evaluate(); err != nil {
-			if err, ok := err.(ReturnError); ok {
-				return err.Value, nil
+			if ret, ok := err.(ReturnError); ok {
+				return ret.Value, nil
 			}
 			return nil, err
 		}

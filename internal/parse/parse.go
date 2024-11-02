@@ -225,6 +225,8 @@ func statement(s *parser) (ast.Stmt, error) {
 		return forStmt(s)
 	}
 
+	// Production rules:
+	// - breakStmt -> "break" ";";
 	if s.match(token.BREAK) {
 		s.advance()
 		if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
@@ -233,11 +235,17 @@ func statement(s *parser) (ast.Stmt, error) {
 		return ast.BreakStmt{}, nil
 	}
 
+	// Production rules:
+	// - returnStmt -> "return" expression? ";";
 	if s.match(token.RETURN) {
 		s.advance()
-		expr, err := expression(s)
-		if err != nil {
-			return nil, err
+		var expr ast.Expr
+		var err error
+		if !s.check(token.SEMICOLON) {
+			expr, err = expression(s)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
