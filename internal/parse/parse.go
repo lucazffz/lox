@@ -743,7 +743,7 @@ func unary(s *parser) (ast.Expr, error) {
 //   - precedence: 1
 //   - associativity: left-to-right
 func call(s *parser) (ast.Expr, error) {
-	expr, err := primary(s)
+	expr, err := functionExpr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -787,6 +787,59 @@ func call(s *parser) (ast.Expr, error) {
 		paren := s.peek()
 		expr = ast.CallStmt{Callee: expr, Paren: paren, Arguments: arguments}
 	}
+}
+
+func functionExpr(s *parser) (ast.Expr, error) {
+    if !s.match(token.FUN) {
+        return primary(s)
+    }
+
+    s.advance()
+        
+	if err := s.consume(token.LEFT_PAREN, "expected '(' after function"); err != nil {
+		return nil, err
+	}
+
+	var parameters []token.Token
+	if !s.check(token.RIGHT_PAREN) {
+		for {
+			if len(parameters) >= 255 {
+				err := ParseError{
+					Line:    s.peek().Line,
+					Lexme:   s.peek().Lexme,
+					Message: "cannot have more than 255 arguments"}
+				return nil, err
+			}
+			if err := s.consume(token.IDENTIFIER, "expected parameter name"); err != nil {
+				return nil, err
+			}
+
+			parameters = append(parameters, s.previous())
+
+			if !s.match(token.COMMA) {
+				break
+			}
+
+			s.advance()
+		}
+	}
+
+	if err := s.consume(token.RIGHT_PAREN, "expected ')' after parameters"); err != nil {
+		return nil, err
+	}
+
+	if err := s.consume(token.LEFT_BRACE, "expected '{' before %s body"); err != nil {
+		return nil, err
+	}
+
+	block, err := blockStmt(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// will never panic because blockStmt will always return a block
+	body := block.(ast.BlockStmt).Statements
+	return ast.FunctionExpr{Parameters: parameters, Body: body}, nil
 }
 
 // Production rules:

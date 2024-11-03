@@ -44,6 +44,11 @@ type AssignExpr struct {
     Value Expr
 }
 
+type FunctionExpr struct {
+	Parameters []token.Token
+	Body       []Stmt
+}
+
 
 type NothingExpr struct {}
 

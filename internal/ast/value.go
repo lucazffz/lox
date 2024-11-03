@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+    "github.com/LucazFFz/lox/internal/token"
 )
 
 type LoxValue interface {
@@ -33,7 +34,10 @@ type LoxType struct {
 type LoxNil struct{}
 
 type LoxFunction struct {
-	FunctionStmt
+	Name       token.Token
+	Parameters []token.Token
+	Body       []Stmt
+    IsAnonymous bool
 	Closure *Environment
 }
 
@@ -216,6 +220,10 @@ func (t NativeFunction) Type() LoxValueType {
 
 func (t NativeFunction) DebugPrint() string {
 	return ""
+}
+
+func (t LoxFunction) DebugPrint() string {
+    return ""
 }
 
 func (t NativeFunction) Call(arguments []LoxValue) (LoxValue, error) {

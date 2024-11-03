@@ -182,7 +182,11 @@ func (t CallStmt) Evaluate() (LoxValue, error) {
 }
 
 func (t FunctionStmt) Evaluate() error {
-	function := LoxFunction{FunctionStmt: t, Closure: current_env}
+	function := LoxFunction{
+		Name:       t.Name,
+		Parameters: t.Parameters,
+		Body:       t.Body,
+		Closure:    current_env}
 	current_env.Define(t.Name.Lexme, function)
 	return nil
 }
@@ -418,6 +422,15 @@ func (t AssignExpr) Evaluate() (LoxValue, error) {
 	}
 
 	return value, nil
+}
+
+func (t FunctionExpr) Evaluate() (LoxValue, error) {
+	return LoxFunction{
+		Name:       token.Token{},
+        IsAnonymous: true,
+		Parameters: t.Parameters,
+		Body:       t.Body,
+		Closure:    current_env}, nil
 }
 
 func (t NothingExpr) Evaluate() (LoxValue, error) {

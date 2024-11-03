@@ -43,6 +43,10 @@ func (t NothingExpr) DebugPrint() string {
 	return parenthesize("Nothing")
 }
 
+func (t FunctionExpr) DebugPrint() string {
+    return parenthesize("function")
+}
+
 func parenthesize(name string, exprs ...DebugPrint) string {
 	var builder = strings.Builder{}
 	builder.WriteString("(")
