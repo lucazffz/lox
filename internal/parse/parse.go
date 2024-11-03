@@ -111,7 +111,7 @@ func declaration(s *parser) (ast.Stmt, error) {
 		}
 		return stmt, nil
 	}
-	if s.match(token.FUN) {
+	if s.check(token.FUN) && s.checkNext(token.IDENTIFIER) {
 		s.advance()
 		stmt, err := function(s, "function")
 		if err != nil {
@@ -790,12 +790,12 @@ func call(s *parser) (ast.Expr, error) {
 }
 
 func functionExpr(s *parser) (ast.Expr, error) {
-    if !s.match(token.FUN) {
-        return primary(s)
-    }
+	if !s.match(token.FUN) {
+		return primary(s)
+	}
 
-    s.advance()
-        
+	s.advance()
+
 	if err := s.consume(token.LEFT_PAREN, "expected '(' after function"); err != nil {
 		return nil, err
 	}
@@ -960,6 +960,13 @@ func (s *parser) check(typ token.TokenType) bool {
 	return s.peek().Type == typ
 }
 
+func (s *parser) checkNext(typ token.TokenType) bool {
+    if s.atEndOfFile() {
+        return false
+    }
+    return s.peekNext().Type == typ
+}
+
 func (s *parser) advance() token.Token {
 	if !s.atEndOfFile() {
 		s.current++
@@ -973,6 +980,10 @@ func (s *parser) previous() token.Token {
 
 func (s *parser) peek() token.Token {
 	return s.tokens[s.current]
+}
+
+func (s *parser) peekNext() token.Token {
+    return s.tokens[s.current+1]
 }
 
 func (s *parser) atEndOfFile() bool {
