@@ -7,6 +7,7 @@ import "github.com/LucazFFz/lox/internal/token"
 type Stmt interface {
     EvaluateStmt
     DebugPrint
+    ResolvableStmt
 }
 
 type ExpressionStmt struct {

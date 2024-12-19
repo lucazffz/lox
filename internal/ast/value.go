@@ -2,7 +2,7 @@ package ast
 
 import (
 	"fmt"
-    "github.com/LucazFFz/lox/internal/token"
+	"github.com/LucazFFz/lox/internal/token"
 )
 
 type LoxValue interface {
@@ -34,11 +34,11 @@ type LoxType struct {
 type LoxNil struct{}
 
 type LoxFunction struct {
-	Name       token.Token
-	Parameters []token.Token
-	Body       []Stmt
-    IsAnonymous bool
-	Closure *Environment
+	Name        token.Token
+	Parameters  []token.Token
+	Body        []Stmt
+	IsAnonymous bool
+	Closure     *Environment
 }
 
 type NativeFunction struct {
@@ -194,11 +194,12 @@ func (v LoxType) Type() LoxValueType {
 }
 
 func (t LoxFunction) Call(arguments []LoxValue) (LoxValue, error) {
-	env := NewEnvironment(t.Closure)
-
+	m := make(map[string]LoxValue)
 	for i, param := range t.Parameters {
-		env.Define(param.Lexme, arguments[i])
+		m[param.Lexme] = arguments[i]
 	}
+
+	env := NewEnvironmentWithDefined(t.Closure, m)
 
 	if err := executeBlock(t.Body, env); err != nil {
 		if err, ok := err.(ReturnError); ok {
@@ -223,7 +224,7 @@ func (t NativeFunction) DebugPrint() string {
 }
 
 func (t LoxFunction) DebugPrint() string {
-    return ""
+	return ""
 }
 
 func (t NativeFunction) Call(arguments []LoxValue) (LoxValue, error) {

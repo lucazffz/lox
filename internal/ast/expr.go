@@ -7,46 +7,54 @@ import "github.com/LucazFFz/lox/internal/token"
 type Expr interface {
 	DebugPrint
 	EvaluateExpr
+    ResolvableExpr
 }
-
 
 type BinaryExpr struct {
 	Left  Expr
 	Op    token.Token
 	Right Expr
+    depth int
 }
 
 type GroupingExpr struct {
 	Expr Expr
+    depth int
 }
 
 type LiteralExpr struct {
 	Value LoxValue
+    depth int
 }
 
 type VariableExpr struct {
     Name token.Token
+    depth int
 }
 
 type UnaryExpr struct {
 	Op    token.Token
 	Right Expr
+    depth int
 }
 
 type TernaryExpr struct {
 	Condition Expr
 	Left      Expr
 	Right     Expr
+    depth int
 }
 
 type AssignExpr struct {
     Name  token.Token
     Value Expr
+    depth int
 }
 
 type FunctionExpr struct {
 	Parameters []token.Token
 	Body       []Stmt
+    depth int
 }
 
 

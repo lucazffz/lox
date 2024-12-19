@@ -789,6 +789,11 @@ func call(s *parser) (ast.Expr, error) {
 	}
 }
 
+// Production rules:
+//   - funDeclaration -> "fun" "(" parameters? ")" blockStmt;
+//   - parameters -> IDENTIFIER ("," IDENTIFIER)*;
+//   - precedence: 1
+//   - associativity: none
 func functionExpr(s *parser) (ast.Expr, error) {
 	if !s.match(token.FUN) {
 		return primary(s)

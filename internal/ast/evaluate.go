@@ -60,12 +60,12 @@ func (s PrintStmt) Evaluate() error {
 }
 
 func (s BlockStmt) Evaluate() error {
-	return executeBlock(s.Statements, NewEnvironment(current_env))
+	return executeBlock(s.Statements, current_env)
 }
 
 func (s VarStmt) Evaluate() error {
 	if (s.Initializer == NothingExpr{}) {
-		current_env.Define(s.Name.Lexme, LoxNil{})
+		current_env = Define(current_env, s.Name.Lexme, LoxNil{})
 	}
 
 	value, err := s.Initializer.Evaluate()
@@ -73,7 +73,7 @@ func (s VarStmt) Evaluate() error {
 		return err
 	}
 
-	current_env.Define(s.Name.Lexme, value)
+	current_env = Define(current_env, s.Name.Lexme, value)
 	return nil
 }
 
@@ -187,7 +187,7 @@ func (t FunctionStmt) Evaluate() error {
 		Parameters: t.Parameters,
 		Body:       t.Body,
 		Closure:    current_env}
-	current_env.Define(t.Name.Lexme, function)
+	current_env = Define(current_env, t.Name.Lexme, function)
 	return nil
 }
 
@@ -426,11 +426,11 @@ func (t AssignExpr) Evaluate() (LoxValue, error) {
 
 func (t FunctionExpr) Evaluate() (LoxValue, error) {
 	return LoxFunction{
-		Name:       token.Token{},
-        IsAnonymous: true,
-		Parameters: t.Parameters,
-		Body:       t.Body,
-		Closure:    current_env}, nil
+		Name:        token.Token{},
+		IsAnonymous: true,
+		Parameters:  t.Parameters,
+		Body:        t.Body,
+		Closure:     current_env}, nil
 }
 
 func (t NothingExpr) Evaluate() (LoxValue, error) {

@@ -5,6 +5,10 @@ import (
 	"github.com/LucazFFz/lox/internal/token"
 )
 
+// Enironments are presistent meaning their values cannot change. Each
+// variable declaration will create a new environment. However, the
+// variables in a given environment can be reassigned.
+// Neccessary for closures to work properly.
 type Environment struct {
 	enclosing   *Environment
 	enviornment map[string]LoxValue
@@ -17,8 +21,16 @@ func NewEnvironment(enclosing *Environment) *Environment {
 	}
 }
 
-func (e *Environment) Define(name string, value LoxValue) {
-	e.enviornment[name] = value
+func NewEnvironmentWithDefined(env *Environment, m map[string]LoxValue) *Environment {
+	newEnv := NewEnvironment(env)
+	newEnv.enviornment = m
+	return newEnv
+}
+
+func Define(env *Environment, name string, value LoxValue) *Environment {
+	newEnv := NewEnvironment(env)
+	newEnv.enviornment[name] = value
+	return newEnv
 }
 
 func (e *Environment) Assign(name string, value LoxValue) error {
