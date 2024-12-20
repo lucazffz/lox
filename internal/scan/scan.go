@@ -35,6 +35,7 @@ func newScanner(source string, report func(error), context ScanContext) *scanner
 		"or":     token.OR,
 		"print":  token.PRINT,
 		"return": token.RETURN,
+        "break":  token.BREAK,
 		"super":  token.SUPER,
 		"this":   token.THIS,
 		"true":   token.TRUE,

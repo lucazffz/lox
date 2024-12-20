@@ -240,20 +240,19 @@ func statement(s *parser) (ast.Stmt, error) {
 	// - returnStmt -> "return" expression? ";";
 	if s.match(token.RETURN) {
 		s.advance()
-		var expr ast.Expr
-		var err error
 		if !s.check(token.SEMICOLON) {
-			expr, err = expression(s)
-			if err != nil {
+			if expr, err := expression(s); err != nil {
 				return nil, err
+			} else {
+				if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
+					return nil, err
+				}
+				return ast.ReturnStmt{Expr: expr}, nil
 			}
 		}
 
-		if err := s.consume(token.SEMICOLON, "expected ';' after statement"); err != nil {
-			return nil, err
-		}
-
-		return ast.ReturnStmt{Expr: expr}, nil
+        s.advance() // next token guaranteed to be a semicolon
+		return ast.ReturnStmt{Expr: ast.NothingExpr{}}, nil
 	}
 
 	if s.match(token.PRINT) {
@@ -966,10 +965,10 @@ func (s *parser) check(typ token.TokenType) bool {
 }
 
 func (s *parser) checkNext(typ token.TokenType) bool {
-    if s.atEndOfFile() {
-        return false
-    }
-    return s.peekNext().Type == typ
+	if s.atEndOfFile() {
+		return false
+	}
+	return s.peekNext().Type == typ
 }
 
 func (s *parser) advance() token.Token {
@@ -988,7 +987,7 @@ func (s *parser) peek() token.Token {
 }
 
 func (s *parser) peekNext() token.Token {
-    return s.tokens[s.current+1]
+	return s.tokens[s.current+1]
 }
 
 func (s *parser) atEndOfFile() bool {

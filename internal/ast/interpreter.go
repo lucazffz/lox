@@ -8,6 +8,14 @@ import (
 // the global environment
 var global_env = NewEnvironment(nil)
 
+// the current scope depth we operate in (global is 0). Does not
+// correspond to the environment since a new environment is created
+// for each new declaration aswell, not just for each new scope
+
+type ExprHashable string
+
+var Locals = make(map[ExprHashable]int)
+
 // the current environment (used for block scopes) we
 // operate in, starts as the global environment but may be
 // reassigned by block scopes
@@ -28,7 +36,7 @@ var typeFunc = NativeFunction{
 }
 
 func addNativeFunction(name string, f NativeFunction) {
-    global_env.enviornment[name] = f
+	global_env.enviornment[name] = f
 }
 
 func executeBlock(statements []Stmt, env *Environment) error {
