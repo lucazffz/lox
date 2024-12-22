@@ -14,15 +14,32 @@ type ResolveError struct {
 }
 
 func (e ResolveError) Error() string {
-	return fmt.Sprintf("resolver error: %s", e.Message)
+	return fmt.Sprintf("resolver error: %s\n", e.Message)
 }
 
 type resolver struct {
-	scope          []map[string]bool
+	scope          []map[string]variable
 	withinFunction bool
 	withinLoop     bool
 	errOccurred    bool
 	report         func(error)
+}
+
+type variable struct {
+	initialized bool
+	captured    bool
+}
+
+func newVariable() variable {
+	return variable{false, false}
+}
+
+func (v variable) initialize() variable {
+	return variable{true, v.captured}
+}
+
+func (v variable) capture() variable {
+	return variable{v.initialized, true}
 }
 
 func newResolver(report func(error)) *resolver {
@@ -30,16 +47,18 @@ func newResolver(report func(error)) *resolver {
 		withinFunction: false,
 		withinLoop:     false,
 		errOccurred:    false,
-		scope:          make([]map[string]bool, 0)}
+		scope:          make([]map[string]variable, 0)}
 }
 
 func Resolve(stmts []Stmt, report func(error)) error {
 	resolver := newResolver(report)
+
 	resolver.BeginScope()
-	defer resolver.EndScope()
 	for _, stmt := range stmts {
 		stmt.Resolve(resolver)
 	}
+
+	resolver.EndScope()
 	if resolver.errOccurred {
 		return errors.New("resolver error")
 	}
@@ -47,58 +66,7 @@ func Resolve(stmts []Stmt, report func(error)) error {
 	return nil
 }
 
-// tells the interpreter the number of scopes between the
-// current scope and the scope where the variable was declared
-// used for variable expressions and assignment expressions
-// resolution information stored in 'resolution' map
-func (r *resolver) resolveLocal(expr Expr, name string) {
-	// pop from scope stack until we find the variable
-	for i := len(r.scope) - 1; i >= 0; i-- {
-		if _, contains := r.scope[i][name]; contains {
-			declDist := len(r.scope) - 1 - i
-			hashable := ExprHashable(fmt.Sprintf("%v", expr))
-			Locals[hashable] = declDist
-			return
-		}
-	}
-}
-
-func (r *resolver) resolveFunction(resolvable Resolvable) {
-	enclosingFunction := r.withinFunction
-	r.withinFunction = true
-	r.BeginScope()
-	defer func() {
-		r.EndScope()
-		r.withinFunction = enclosingFunction
-	}()
-
-	switch function := resolvable.(type) {
-	case FunctionStmt:
-		for _, param := range function.Parameters {
-			r.Declare(param.Lexme)
-			r.Define(param.Lexme)
-		}
-
-		for _, stmt := range function.Body {
-			stmt.Resolve(r)
-		}
-		break
-	case FunctionExpr:
-		for _, param := range function.Parameters {
-			r.Declare(param.Lexme)
-			r.Define(param.Lexme)
-		}
-
-		for _, stmt := range function.Body {
-			stmt.Resolve(r)
-		}
-		break
-	default:
-		panic("invalid function type")
-	}
-}
-
-func (r *resolver) ScopePeek() (map[string]bool, bool) {
+func (r *resolver) ScopePeek() (map[string]variable, bool) {
 	if len(r.scope) == 0 {
 		return nil, false
 	}
@@ -106,34 +74,42 @@ func (r *resolver) ScopePeek() (map[string]bool, bool) {
 }
 
 func (r *resolver) BeginScope() {
-	r.scope = append(r.scope, make(map[string]bool))
+	r.scope = append(r.scope, make(map[string]variable))
 }
 
 func (r *resolver) EndScope() {
 	if len(r.scope) == 0 {
 		return
 	}
+
+	for name, variable := range r.scope[len(r.scope)-1] {
+		if !variable.captured {
+			str := fmt.Sprintf("variable '%s' declared but never used", name)
+			r.report(ResolveError{Message: str})
+			r.errOccurred = true
+		}
+	}
+
 	r.scope = r.scope[:len(r.scope)-1]
 }
 
 func (r *resolver) Declare(name string) {
 	if scope, ok := r.ScopePeek(); ok {
 		if _, ok := scope[name]; ok {
-			r.report(ResolveError{Message: "variable already declared in this scope"})
+			str := fmt.Sprintf("variable '%s' already declared in this scope", name)
+			r.report(ResolveError{Message: str})
 			r.errOccurred = true
 		}
-		scope[name] = false
+		scope[name] = newVariable()
 	}
 }
 
 func (r *resolver) Define(name string) {
 	if scope, ok := r.ScopePeek(); ok {
-		scope[name] = true
+		if _, ok := scope[name]; ok {
+			scope[name] = scope[name].initialize()
+		}
 	}
-}
-
-func (r *resolver) scopeDepth() int {
-	return len(r.scope)
 }
 
 // Expressions
@@ -150,13 +126,19 @@ func (e LiteralExpr) Resolve(r *resolver) {}
 
 func (e VariableExpr) Resolve(r *resolver) {
 	if scope, ok := r.ScopePeek(); ok {
-		if initialized, ok := scope[e.Name.Lexme]; ok && !initialized {
+		if variable, ok := scope[e.Name.Lexme]; ok && !variable.initialized {
 			r.report(ResolveError{Message: "variable used before initialization"})
 			r.errOccurred = true
 		}
 	}
 
-	r.resolveLocal(e, e.Name.Lexme)
+	for i := len(r.scope) - 1; i >= 0; i-- {
+		name := e.Name.Lexme
+		if variable, contains := r.scope[i][name]; contains {
+			r.scope[i][name] = variable.capture()
+			return
+		}
+	}
 }
 
 func (e UnaryExpr) Resolve(r *resolver) {
@@ -171,11 +153,24 @@ func (e TernaryExpr) Resolve(r *resolver) {
 
 func (e AssignExpr) Resolve(r *resolver) {
 	e.Value.Resolve(r)
-	r.resolveLocal(e, e.Name.Lexme)
 }
 
 func (e FunctionExpr) Resolve(r *resolver) {
-	r.resolveFunction(e)
+	enclosingFunction := r.withinFunction
+	r.withinFunction = true
+	r.BeginScope()
+
+	for _, param := range e.Parameters {
+		r.Declare(param.Lexme)
+		r.Define(param.Lexme)
+	}
+
+	for _, stmt := range e.Body {
+		stmt.Resolve(r)
+	}
+
+	r.EndScope()
+	r.withinFunction = enclosingFunction
 }
 
 // Statements
@@ -217,7 +212,8 @@ func (s WhileStmt) Resolve(r *resolver) {
 
 func (s ReturnStmt) Resolve(r *resolver) {
 	if !r.withinFunction {
-		r.report(ResolveError{Message: "return statement outside of function"})
+		str := fmt.Sprintf("return statement outside of function")
+		r.report(ResolveError{Message: str})
 		r.errOccurred = true
 	}
 	if s.Expr != nil {
@@ -228,7 +224,22 @@ func (s ReturnStmt) Resolve(r *resolver) {
 func (s FunctionStmt) Resolve(r *resolver) {
 	r.Declare(s.Name.Lexme)
 	r.Define(s.Name.Lexme)
-	r.resolveFunction(s)
+
+	enclosingFunction := r.withinFunction
+	r.withinFunction = true
+	r.BeginScope()
+
+	for _, param := range s.Parameters {
+		r.Declare(param.Lexme)
+		r.Define(param.Lexme)
+	}
+
+	for _, stmt := range s.Body {
+		stmt.Resolve(r)
+	}
+
+	r.EndScope()
+	r.withinFunction = enclosingFunction
 }
 
 func (s ExpressionStmt) Resolve(r *resolver) {

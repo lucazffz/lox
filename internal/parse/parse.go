@@ -452,7 +452,7 @@ func expression(s *parser) (ast.Expr, error) {
 }
 
 // Production rules:
-//   - assignment -> IDENTIFIER "=" (assignment | comma);
+//   - assignment -> IDENTIFIER "=" (assignment | conditional);
 //   - precedence: 16
 //   - associativity: right-to-left
 func assignment(s *parser) (ast.Expr, error) {

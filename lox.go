@@ -137,29 +137,11 @@ func exec(source string) {
 		return
 	}
 
-	if err = ast.Resolve(stmts, report); err != nil {
+	if err := ast.Resolve(stmts, report); err != nil {
 		return
 	}
 
-    println("Locals:")
-    for local, val := range ast.Locals {
-        println(local, ": ", val)
-    }
-
 	ast.Interpret(stmts, report)
-	// for _, token := range tokens {
-	// 	fmt.Println(token)
-	// }
-	//
-
-	// fmt.Println(expr.Print())
-
-	// value, err := expr.Evaluate()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// } else {
-	// 	fmt.Println(value.Print())
-	// }
 }
 
 func report(err error) {
