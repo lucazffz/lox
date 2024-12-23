@@ -53,12 +53,12 @@ func newResolver(report func(error)) *resolver {
 func Resolve(stmts []Stmt, report func(error)) error {
 	resolver := newResolver(report)
 
-	resolver.BeginScope()
+	resolver.beginScope()
 	for _, stmt := range stmts {
 		stmt.Resolve(resolver)
 	}
 
-	resolver.EndScope()
+	resolver.endScope()
 	if resolver.errOccurred {
 		return errors.New("resolver error")
 	}
@@ -66,18 +66,18 @@ func Resolve(stmts []Stmt, report func(error)) error {
 	return nil
 }
 
-func (r *resolver) ScopePeek() (map[string]variable, bool) {
+func (r *resolver) scopePeek() (map[string]variable, bool) {
 	if len(r.scope) == 0 {
 		return nil, false
 	}
 	return r.scope[len(r.scope)-1], true
 }
 
-func (r *resolver) BeginScope() {
+func (r *resolver) beginScope() {
 	r.scope = append(r.scope, make(map[string]variable))
 }
 
-func (r *resolver) EndScope() {
+func (r *resolver) endScope() {
 	if len(r.scope) == 0 {
 		return
 	}
@@ -93,8 +93,8 @@ func (r *resolver) EndScope() {
 	r.scope = r.scope[:len(r.scope)-1]
 }
 
-func (r *resolver) Declare(name string) {
-	if scope, ok := r.ScopePeek(); ok {
+func (r *resolver) declare(name string) {
+	if scope, ok := r.scopePeek(); ok {
 		if _, ok := scope[name]; ok {
 			str := fmt.Sprintf("variable '%s' already declared in this scope", name)
 			r.report(ResolveError{Message: str})
@@ -104,8 +104,8 @@ func (r *resolver) Declare(name string) {
 	}
 }
 
-func (r *resolver) Define(name string) {
-	if scope, ok := r.ScopePeek(); ok {
+func (r *resolver) define(name string) {
+	if scope, ok := r.scopePeek(); ok {
 		if _, ok := scope[name]; ok {
 			scope[name] = scope[name].initialize()
 		}
@@ -125,7 +125,7 @@ func (e GroupingExpr) Resolve(r *resolver) {
 func (e LiteralExpr) Resolve(r *resolver) {}
 
 func (e VariableExpr) Resolve(r *resolver) {
-	if scope, ok := r.ScopePeek(); ok {
+	if scope, ok := r.scopePeek(); ok {
 		if variable, ok := scope[e.Name.Lexme]; ok && !variable.initialized {
 			r.report(ResolveError{Message: "variable used before initialization"})
 			r.errOccurred = true
@@ -158,25 +158,25 @@ func (e AssignExpr) Resolve(r *resolver) {
 func (e FunctionExpr) Resolve(r *resolver) {
 	enclosingFunction := r.withinFunction
 	r.withinFunction = true
-	r.BeginScope()
+	r.beginScope()
 
 	for _, param := range e.Parameters {
-		r.Declare(param.Lexme)
-		r.Define(param.Lexme)
+		r.declare(param.Lexme)
+		r.define(param.Lexme)
 	}
 
 	for _, stmt := range e.Body {
 		stmt.Resolve(r)
 	}
 
-	r.EndScope()
+	r.endScope()
 	r.withinFunction = enclosingFunction
 }
 
 // Statements
 func (s BlockStmt) Resolve(r *resolver) {
-	r.BeginScope()
-	defer r.EndScope()
+	r.beginScope()
+	defer r.endScope()
 	for _, stmt := range s.Statements {
 		stmt.Resolve(r)
 	}
@@ -185,13 +185,13 @@ func (s BlockStmt) Resolve(r *resolver) {
 func (s VarStmt) Resolve(r *resolver) {
 	// split variable declaration and initialization into two separate steps
 	// to prevent issues as: var a = a; (most sane to throw compile error here)
-	r.Declare(s.Name.Lexme)
+	r.declare(s.Name.Lexme)
 
 	if s.Initializer != nil {
 		s.Initializer.Resolve(r)
 	}
 
-	r.Define(s.Name.Lexme)
+	r.define(s.Name.Lexme)
 }
 
 func (s IfStmt) Resolve(r *resolver) {
@@ -222,23 +222,23 @@ func (s ReturnStmt) Resolve(r *resolver) {
 }
 
 func (s FunctionStmt) Resolve(r *resolver) {
-	r.Declare(s.Name.Lexme)
-	r.Define(s.Name.Lexme)
+	r.declare(s.Name.Lexme)
+	r.define(s.Name.Lexme)
 
 	enclosingFunction := r.withinFunction
 	r.withinFunction = true
-	r.BeginScope()
+	r.beginScope()
 
 	for _, param := range s.Parameters {
-		r.Declare(param.Lexme)
-		r.Define(param.Lexme)
+		r.declare(param.Lexme)
+		r.define(param.Lexme)
 	}
 
 	for _, stmt := range s.Body {
 		stmt.Resolve(r)
 	}
 
-	r.EndScope()
+	r.endScope()
 	r.withinFunction = enclosingFunction
 }
 
